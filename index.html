@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Escáner PDF417 optimizado para Cédula de Ciudadanía Colombiana">
+  <meta name="description" content="Escáner PDF417 para Cédula de Ciudadanía Colombiana">
   <meta name="theme-color" content="#0f172a">
   <title>🔬 Scanner PDF417 · Cédula CO</title>
   <style>
@@ -28,8 +28,8 @@
     
     .card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem; margin-bottom: 1rem; }
     
-    #video-container { position: relative; width: 100%; height: 320px; background: #000; border-radius: var(--radius); overflow: hidden; }
-    #video-container video { width: 100%; height: 100%; object-fit: cover; }
+    #reader { width: 100%; height: 320px; background: #000; border-radius: var(--radius); overflow: hidden; position: relative; }
+    #reader video { width: 100%; height: 100%; object-fit: cover; }
     .guide-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; height: 130px; border: 3px solid rgba(37, 99, 235, 0.8); border-radius: 8px; pointer-events: none; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); }
     .guide-overlay::after { content: 'Alinea el código PDF417 aquí'; position: absolute; bottom: -25px; left: 0; width: 100%; text-align: center; color: #fff; font-size: 0.8rem; font-weight: 500; }
     
@@ -79,7 +79,7 @@
     #rawData { background: #1e293b; color: #e2e8f0; padding: 0.75rem; border-radius: 8px; font-family: monospace; font-size: 0.75rem; overflow-x: auto; margin: 0.5rem 0; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
     
     @media (max-width: 480px) {
-      #video-container { height: 260px; }
+      #reader { height: 260px; }
       .controls { flex-direction: column; }
       button { width: 100%; }
       .tabs { overflow-x: auto; }
@@ -101,8 +101,7 @@
 
     <div id="scannerTab" class="tab-content active">
       <section class="card">
-        <div id="video-container">
-          <video id="video" autoplay playsinline muted></video>
+        <div id="reader">
           <div class="guide-overlay"></div>
         </div>
         <div class="controls">
@@ -146,31 +145,30 @@
 
   <div id="toast" class="toast"></div>
 
-  <script type="module">
-    // ✅ IMPORTS CORREGIDOS (ZXing funcional)
-    import { BrowserMultiFormatReader } from 'https://unpkg.com/@zxing/browser@0.1.4/esm/index.js';
-    import { BarcodeFormat, DecodeHintType } from 'https://unpkg.com/@zxing/library@0.20.0/esm/index.js';
-
-    let codeReader, scanStream, records = JSON.parse(localStorage.getItem('cedula_records') || '[]');
+  <!-- ✅ LIBRERÍA QUE SÍ FUNCIONA (confirmado por ti) -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script>
+    let html5QrCode, records = JSON.parse(localStorage.getItem('cedula_records') || '[]');
     let lastScanTime = 0;
     let isScanning = false;
-    const SCAN_COOLDOWN = 500;
+    const SCAN_COOLDOWN = 500; // Rápido: 500ms entre escaneos
 
+    const $ = id => document.getElementById(id);
     const els = {
-      start: document.getElementById('btnStart'),
-      stop: document.getElementById('btnStop'),
-      status: document.getElementById('status'),
-      video: document.getElementById('video'),
-      result: document.getElementById('resultSection'),
-      rawData: document.getElementById('rawData'),
-      parsed: document.getElementById('parsedFields'),
-      newScan: document.getElementById('btnNewScan'),
-      list: document.getElementById('recordList'),
-      totalRecords: document.getElementById('totalRecords'),
-      empty: document.getElementById('emptyState'),
-      clear: document.getElementById('btnClear'),
-      export: document.getElementById('btnExport'),
-      toast: document.getElementById('toast')
+      start: $('btnStart'),
+      stop: $('btnStop'),
+      status: $('status'),
+      result: $('resultSection'),
+      rawData: $('rawData'),
+      parsed: $('parsedFields'),
+      newScan: $('btnNewScan'),
+      list: $('recordList'),
+      totalRecords: $('totalRecords'),
+      empty: $('emptyState'),
+      clear: $('btnClear'),
+      export: $('btnExport'),
+      copy: $('btnCopy'),
+      toast: $('toast')
     };
 
     const toast = (msg, type = 'info') => {
@@ -182,6 +180,7 @@
 
     const vibrate = () => navigator.vibrate?.(100);
 
+    // ✅ PARSER MEJORADO PARA CÉDULA COLOMBIANA
     const parseCedulaColombiana = (raw) => {
       if (!raw || raw.length < 20) return null;
 
@@ -199,6 +198,7 @@
       };
       
       try {
+        // Decodificar Latin1 → UTF-8
         let decoded = '';
         for (let i = 0; i < raw.length; i++) {
           const charCode = raw.charCodeAt(i);
@@ -217,9 +217,11 @@
         decoded = decoded.replace(/[\x00-\x1F\x7F]/g, ' ');
         decoded = decoded.replace(/\s+/g, ' ').trim();
         
+        // Número de documento (7-10 dígitos)
         const docMatch = decoded.match(/\b(\d{7,10})\b/);
         if (docMatch) fields.numeroIdentidad = docMatch[1];
         
+        // Fechas (DD/MM/YYYY)
         const datePattern = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/g;
         const dates = [];
         let match;
@@ -229,18 +231,21 @@
         if (dates.length >= 1) fields.fechaNacimiento = dates[0];
         if (dates.length >= 2) fields.fechaExpedicion = dates[1];
         
+        // Sexo
         if (/MASCULINO|MASC|M(?=\s|$)/i.test(decoded) && !/FEM/i.test(decoded)) {
           fields.sexo = 'MASCULINO';
         } else if (/FEMENINO|FEM|F(?=\s|$)/i.test(decoded)) {
           fields.sexo = 'FEMENINO';
         }
         
+        // Grupo sanguíneo
         const bloodMatch = decoded.match(/\b([ABO][AB]?)\s*([+-])\b/i);
         if (bloodMatch) fields.gsRh = `${bloodMatch[1].toUpperCase()}${bloodMatch[2]}`;
         
-        const heightMatch = decoded.match(/\b(1\d{2})\s*CM\b/i) || decoded.match(/\b(\d\.\d{2})\s*M\b/i);
+        // Estatura
+        const heightMatch = decoded.match(/\b(1\d{2})\s*CM\b/i);
         if (heightMatch) {
-          fields.estatura = heightMatch[1] + (heightMatch[0].toUpperCase().includes('CM') ? ' cm' : ' m');
+          fields.estatura = `${heightMatch[1]} cm`;
         } else {
           const heightNum = decoded.match(/\b(1\d{2})\b/);
           if (heightNum && heightNum[1] >= 100 && heightNum[1] <= 200) {
@@ -248,6 +253,7 @@
           }
         }
         
+        // Nombres y apellidos
         let textForNames = decoded;
         textForNames = textForNames.replace(fields.numeroIdentidad, ' ');
         textForNames = textForNames.replace(datePattern, ' ');
@@ -264,24 +270,13 @@
         if (words.length >= 4) {
           fields.nombres = `${words[0]} ${words[1]}`.trim();
           fields.apellidos = `${words[2]} ${words[3]}`.trim();
-        } else if (words.length === 3) {
+        } else if (words.length >= 2) {
           fields.nombres = words[0];
-          fields.apellidos = `${words[1]} ${words[2]}`.trim();
-        } else if (words.length === 2) {
-          fields.nombres = words[0];
-          fields.apellidos = words[1];
-        } else if (words.length === 1) {
-          fields.nombres = words[0];
+          fields.apellidos = words.slice(1).join(' ');
         }
         
-        const ciudades = [
-          'BOGOTA|BOGOTÁ|SANTA FE DE BOGOTA', 'MEDELLIN|MEDELLÍN', 'CALI',
-          'BARRANQUILLA', 'CARTAGENA', 'BUCARAMANGA', 'PEREIRA', 'MANIZALES',
-          'IBAGUE|IBAGUÉ', 'CUCUTA|CÚCUTA', 'PASTO', 'VILLAVICENCIO',
-          'MONTERIA|MONTERÍA', 'VALLEDUPAR', 'SINCELEJO', 'POPAYAN|POPAYÁN',
-          'TUNJA', 'FLORENCIA', 'YOPAL', 'MOCOA', 'LETICIA', 'SAN ANDRES|SAN ANDRÉS'
-        ];
-        
+        // Lugar de expedición
+        const ciudades = ['BOGOTA|BOGOTÁ', 'MEDELLIN|MEDELLÍN', 'CALI', 'BARRANQUILLA', 'CARTAGENA', 'BUCARAMANGA', 'PEREIRA', 'MANIZALES', 'CUCUTA|CÚCUTA', 'PASTO', 'VILLAVICENCIO'];
         for (const ciudad of ciudades) {
           const ciudadMatch = decoded.match(new RegExp(`(${ciudad})`, 'i'));
           if (ciudadMatch) {
@@ -380,10 +375,10 @@
       
       if (tab === 'scanner') {
         document.querySelector('.tab:nth-child(1)').classList.add('active');
-        document.getElementById('scannerTab').classList.add('active');
+        $('scannerTab').classList.add('active');
       } else {
         document.querySelector('.tab:nth-child(2)').classList.add('active');
-        document.getElementById('recordsTab').classList.add('active');
+        $('recordsTab').classList.add('active');
         updateRecordsUI();
       }
     };
@@ -419,8 +414,8 @@
       toast('🎉 Cédula escaneada', 'success');
     };
 
-    // ✅ FUNCIÓN DE CÁMARA CORREGIDA (ZXing funcional)
-    const initCamera = async () => {
+    // ✅ INICIAR CÁMARA (html5-qrcode - CONFIRMADO FUNCIONAL)
+    const startCamera = async () => {
       if (!window.location.protocol.startsWith('https') && window.location.hostname !== 'localhost') {
         return setStatus('⚠️ Requiere HTTPS o localhost', 'error');
       }
@@ -431,68 +426,37 @@
         els.stop.disabled = false;
         isScanning = true;
         
-        codeReader = new BrowserMultiFormatReader();
-        const hints = new Map();
-        hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.PDF_417]);
-        hints.set(DecodeHintType.TRY_HARDER, true);
-        codeReader.setHints(hints);
-
-        const videoConstraints = { 
-          facingMode: 'environment', 
-          width: { ideal: 1280 }, 
-          height: { ideal: 720 }
-        };
+        html5QrCode = new Html5Qrcode('reader');
+        await html5QrCode.start(
+          { facingMode: 'environment' },
+          { 
+            fps: 10, 
+            qrbox: { width: 300, height: 140 },
+            aspectRatio: 2.0
+          },
+          (decodedText) => processScan(decodedText),
+          (error) => { /* Ignorar errores de frame vacío */ }
+        );
         
-        scanStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
-        els.video.srcObject = scanStream;
-        await els.video.play();
-
-        // Escaneo continuo con ZXing
-        const scanLoop = async () => {
-          if (!isScanning) return;
-          
-          try {
-            const result = await codeReader.decodeFromVideoElement(els.video);
-            if (result?.text) {
-              processScan(result.text);
-            }
-          } catch (e) {
-            // Sin código detectado - continuar
-          }
-          
-          if (isScanning) {
-            setTimeout(scanLoop, 200);
-          }
-        };
-        
-        scanLoop();
         setStatus('🔍 Detectando PDF417...', 'success');
       } catch (err) {
         console.error(err);
-        setStatus('❌ Error cámara: ' + err.message, 'error');
+        setStatus('❌ Error: ' + err.message, 'error');
         els.start.disabled = false;
         els.stop.disabled = true;
         isScanning = false;
       }
     };
 
-    // ✅ FUNCIÓN DETENER CORREGIDA
-    const stopCamera = () => {
-      isScanning = false;
-      
-      if (scanStream) {
-        scanStream.getTracks().forEach(track => track.stop());
-        scanStream = null;
+    // ✅ DETENER CÁMARA (LIBERA CORRECTAMENTE)
+    const stopCamera = async () => {
+      if (html5QrCode) {
+        await html5QrCode.stop();
+        html5QrCode = null;
       }
-      
-      if (codeReader) {
-        codeReader.reset();
-        codeReader = null;
-      }
-      
-      els.video.srcObject = null;
       els.start.disabled = false;
       els.stop.disabled = true;
+      isScanning = false;
       setStatus('⏹ Cámara detenida', '');
     };
 
@@ -501,40 +465,18 @@
       els.status.className = `status ${type}`;
     };
 
+    // Event Listeners
+    els.start.addEventListener('click', startCamera);
+    els.stop.addEventListener('click', stopCamera);
     els.newScan.addEventListener('click', () => {
       els.result.style.display = 'none';
       setStatus('🔍 Listo para siguiente...', 'success');
-      els.video.scrollIntoView({ behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
-
-    document.getElementById('btnCopy').addEventListener('click', () => {
+    els.copy.addEventListener('click', () => {
       navigator.clipboard.writeText(els.rawData.textContent);
       toast('📋 Datos copiados', 'success');
     });
-
-    const exportCSV = () => {
-      if (!records.length) return toast('⚠️ Sin registros', 'error');
-      
-      const headers = ['Fecha', 'Número', 'Nombres', 'Apellidos', 'Fecha Nac.', 'Lugar Nac.', 'Estatura', 'GS RH', 'Sexo', 'Fecha Exp.', 'Lugar Exp.'];
-      const rows = records.map(r => [
-        `"${r.timestamp}"`, `"${r.fields.numeroIdentidad}"`, `"${r.fields.nombres}"`,
-        `"${r.fields.apellidos}"`, `"${r.fields.fechaNacimiento}"`, `"${r.fields.lugarNacimiento}"`,
-        `"${r.fields.estatura}"`, `"${r.fields.gsRh}"`, `"${r.fields.sexo}"`,
-        `"${r.fields.fechaExpedicion}"`, `"${r.fields.lugarExpedicion}"`
-      ]);
-      
-      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `cedulas_${new Date().toISOString().slice(0,10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      toast('⬇ CSV descargado', 'success');
-    };
-
-    els.start.addEventListener('click', initCamera);
-    els.stop.addEventListener('click', stopCamera);
     els.clear.addEventListener('click', () => { 
       if (confirm('¿Eliminar TODOS los registros?')) { 
         records = []; 
@@ -543,7 +485,24 @@
         toast('Todos eliminados', 'success');
       } 
     });
-    els.export.addEventListener('click', exportCSV);
+    els.export.addEventListener('click', () => {
+      if (!records.length) return toast('⚠️ Sin registros', 'error');
+      const headers = ['Fecha', 'Número', 'Nombres', 'Apellidos', 'Fecha Nac.', 'Lugar Nac.', 'Estatura', 'GS RH', 'Sexo', 'Fecha Exp.', 'Lugar Exp.'];
+      const rows = records.map(r => [
+        `"${r.timestamp}"`, `"${r.fields.numeroIdentidad}"`, `"${r.fields.nombres}"`,
+        `"${r.fields.apellidos}"`, `"${r.fields.fechaNacimiento}"`, `"${r.fields.lugarNacimiento}"`,
+        `"${r.fields.estatura}"`, `"${r.fields.gsRh}"`, `"${r.fields.sexo}"`,
+        `"${r.fields.fechaExpedicion}"`, `"${r.fields.lugarExpedicion}"`
+      ]);
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `cedulas_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast('⬇ CSV descargado', 'success');
+    });
     window.addEventListener('beforeunload', stopCamera);
 
     updateRecordsUI();
