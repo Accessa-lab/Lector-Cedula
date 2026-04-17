@@ -147,13 +147,14 @@
   <div id="toast" class="toast"></div>
 
   <script type="module">
-    import { BrowserMultiFormatReader } from 'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.1/+esm';
-    import { BarcodeFormat, DecodeHintType } from 'https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/+esm';
+    // ✅ IMPORTS CORREGIDOS (ZXing funcional)
+    import { BrowserMultiFormatReader } from 'https://unpkg.com/@zxing/browser@0.1.4/esm/index.js';
+    import { BarcodeFormat, DecodeHintType } from 'https://unpkg.com/@zxing/library@0.20.0/esm/index.js';
 
     let codeReader, scanStream, records = JSON.parse(localStorage.getItem('cedula_records') || '[]');
     let lastScanTime = 0;
     let isScanning = false;
-    const SCAN_COOLDOWN = 500; // Reducido a 500ms para escaneo más rápido
+    const SCAN_COOLDOWN = 500;
 
     const els = {
       start: document.getElementById('btnStart'),
@@ -181,7 +182,6 @@
 
     const vibrate = () => navigator.vibrate?.(100);
 
-    // Parser optimizado para cédula colombiana PDF417
     const parseCedulaColombiana = (raw) => {
       if (!raw || raw.length < 20) return null;
 
@@ -199,12 +199,10 @@
       };
       
       try {
-        // Decodificar de Latin1 a UTF-8
         let decoded = '';
         for (let i = 0; i < raw.length; i++) {
           const charCode = raw.charCodeAt(i);
           if (charCode >= 0x80 && charCode <= 0xFF) {
-            // Caracteres extendidos Latin1
             const latin1Map = {
               0xC1: 'Á', 0xC9: 'É', 0xCD: 'Í', 0xD3: 'Ó', 0xDA: 'Ú',
               0xE1: 'á', 0xE9: 'é', 0xED: 'í', 0xF3: 'ó', 0xFA: 'ú',
@@ -216,17 +214,12 @@
           }
         }
         
-        // Limpiar caracteres no imprimibles
         decoded = decoded.replace(/[\x00-\x1F\x7F]/g, ' ');
         decoded = decoded.replace(/\s+/g, ' ').trim();
         
-        // Extraer número de documento (7-10 dígitos consecutivos)
         const docMatch = decoded.match(/\b(\d{7,10})\b/);
-        if (docMatch) {
-          fields.numeroIdentidad = docMatch[1];
-        }
+        if (docMatch) fields.numeroIdentidad = docMatch[1];
         
-        // Extraer fechas (DD/MM/YYYY o DD-MM-YYYY)
         const datePattern = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/g;
         const dates = [];
         let match;
@@ -236,33 +229,25 @@
         if (dates.length >= 1) fields.fechaNacimiento = dates[0];
         if (dates.length >= 2) fields.fechaExpedicion = dates[1];
         
-        // Extraer sexo
         if (/MASCULINO|MASC|M(?=\s|$)/i.test(decoded) && !/FEM/i.test(decoded)) {
           fields.sexo = 'MASCULINO';
         } else if (/FEMENINO|FEM|F(?=\s|$)/i.test(decoded)) {
           fields.sexo = 'FEMENINO';
         }
         
-        // Extraer grupo sanguíneo (A+, A-, B+, B-, AB+, AB-, O+, O-)
         const bloodMatch = decoded.match(/\b([ABO][AB]?)\s*([+-])\b/i);
-        if (bloodMatch) {
-          fields.gsRh = `${bloodMatch[1].toUpperCase()}${bloodMatch[2]}`;
-        }
+        if (bloodMatch) fields.gsRh = `${bloodMatch[1].toUpperCase()}${bloodMatch[2]}`;
         
-        // Extraer estatura (3 dígitos seguidos de CM o metros)
         const heightMatch = decoded.match(/\b(1\d{2})\s*CM\b/i) || decoded.match(/\b(\d\.\d{2})\s*M\b/i);
         if (heightMatch) {
           fields.estatura = heightMatch[1] + (heightMatch[0].toUpperCase().includes('CM') ? ' cm' : ' m');
         } else {
-          // Buscar solo número de 3 dígitos entre 100-200
           const heightNum = decoded.match(/\b(1\d{2})\b/);
           if (heightNum && heightNum[1] >= 100 && heightNum[1] <= 200) {
             fields.estatura = `${heightNum[1]} cm`;
           }
         }
         
-        // Extraer nombres y apellidos
-        // Eliminar del texto lo que ya extrajimos
         let textForNames = decoded;
         textForNames = textForNames.replace(fields.numeroIdentidad, ' ');
         textForNames = textForNames.replace(datePattern, ' ');
@@ -271,13 +256,11 @@
         textForNames = textForNames.replace(/(?:MASCULINO|FEMENINO|MASC|FEM)/gi, ' ');
         textForNames = textForNames.replace(/\s+/g, ' ').trim();
         
-        // Dividir en palabras (evitar números y palabras muy cortas/largas)
         const words = textForNames.split(' ').filter(w => 
           w.length > 2 && w.length < 25 && !/\d/.test(w) &&
           !/^(NAC|EXP|SEX|GS|GRUPO|CM|RH)$/i.test(w)
         );
         
-        // Asumir formato: NOMBRE1 NOMBRE2 APELLIDO1 APELLIDO2
         if (words.length >= 4) {
           fields.nombres = `${words[0]} ${words[1]}`.trim();
           fields.apellidos = `${words[2]} ${words[3]}`.trim();
@@ -291,7 +274,6 @@
           fields.nombres = words[0];
         }
         
-        // Extraer lugares de expedición (ciudades comunes)
         const ciudades = [
           'BOGOTA|BOGOTÁ|SANTA FE DE BOGOTA', 'MEDELLIN|MEDELLÍN', 'CALI',
           'BARRANQUILLA', 'CARTAGENA', 'BUCARAMANGA', 'PEREIRA', 'MANIZALES',
@@ -334,17 +316,13 @@
       ).join('');
     };
 
-    // Verificar si ya existe el registro
     const findExistingRecord = (numeroIdentidad) => {
       return records.find(r => r.fields.numeroIdentidad === numeroIdentidad);
     };
 
     const saveRecord = (fields, raw) => {
-      // Verificar duplicado
       const existing = findExistingRecord(fields.numeroIdentidad);
-      if (existing) {
-        return existing;
-      }
+      if (existing) return existing;
       
       const record = {
         id: Date.now(),
@@ -419,11 +397,10 @@
       
       const fields = parseCedulaColombiana(text);
       if (!fields || fields.numeroIdentidad === 'N/D') {
-        toast('⚠️ No se pudo decodificar correctamente', 'error');
+        toast('⚠️ No se pudo decodificar', 'error');
         return;
       }
       
-      // Verificar si ya existe
       const existing = findExistingRecord(fields.numeroIdentidad);
       if (existing) {
         toast(`📋 Cédula ${fields.numeroIdentidad} ya registrada`, 'error');
@@ -439,9 +416,10 @@
       els.result.scrollIntoView({ behavior: 'smooth' });
       
       setStatus('✅ Lectura completada', 'success');
-      toast('🎉 Cédula escaneada correctamente', 'success');
+      toast('🎉 Cédula escaneada', 'success');
     };
 
+    // ✅ FUNCIÓN DE CÁMARA CORREGIDA (ZXing funcional)
     const initCamera = async () => {
       if (!window.location.protocol.startsWith('https') && window.location.hostname !== 'localhost') {
         return setStatus('⚠️ Requiere HTTPS o localhost', 'error');
@@ -461,15 +439,15 @@
 
         const videoConstraints = { 
           facingMode: 'environment', 
-          width: { ideal: 1920 }, 
-          height: { ideal: 1080 }
+          width: { ideal: 1280 }, 
+          height: { ideal: 720 }
         };
         
         scanStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
         els.video.srcObject = scanStream;
         await els.video.play();
 
-        // Escaneo continuo rápido
+        // Escaneo continuo con ZXing
         const scanLoop = async () => {
           if (!isScanning) return;
           
@@ -483,7 +461,7 @@
           }
           
           if (isScanning) {
-            setTimeout(scanLoop, 200); // Intentar cada 200ms
+            setTimeout(scanLoop, 200);
           }
         };
         
@@ -491,13 +469,14 @@
         setStatus('🔍 Detectando PDF417...', 'success');
       } catch (err) {
         console.error(err);
-        setStatus('❌ Error cámara. Verifica permisos.', 'error');
+        setStatus('❌ Error cámara: ' + err.message, 'error');
         els.start.disabled = false;
         els.stop.disabled = true;
         isScanning = false;
       }
     };
 
+    // ✅ FUNCIÓN DETENER CORREGIDA
     const stopCamera = () => {
       isScanning = false;
       
@@ -522,20 +501,17 @@
       els.status.className = `status ${type}`;
     };
 
-    // Nueva lectura
     els.newScan.addEventListener('click', () => {
       els.result.style.display = 'none';
       setStatus('🔍 Listo para siguiente...', 'success');
       els.video.scrollIntoView({ behavior: 'smooth' });
     });
 
-    // Copiar datos
     document.getElementById('btnCopy').addEventListener('click', () => {
       navigator.clipboard.writeText(els.rawData.textContent);
       toast('📋 Datos copiados', 'success');
     });
 
-    // Export CSV
     const exportCSV = () => {
       if (!records.length) return toast('⚠️ Sin registros', 'error');
       
@@ -557,7 +533,6 @@
       toast('⬇ CSV descargado', 'success');
     };
 
-    // Listeners
     els.start.addEventListener('click', initCamera);
     els.stop.addEventListener('click', stopCamera);
     els.clear.addEventListener('click', () => { 
@@ -571,7 +546,6 @@
     els.export.addEventListener('click', exportCSV);
     window.addEventListener('beforeunload', stopCamera);
 
-    // Init
     updateRecordsUI();
   </script>
 </body>
