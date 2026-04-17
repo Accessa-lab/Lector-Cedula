@@ -28,7 +28,6 @@
 
     .camera-wrapper { background: var(--card); padding: 16px; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px; }
     #scanner-container { position: relative; width: 100%; min-height: 320px; background: #111; border-radius: 8px; overflow: hidden; }
-    /* FIX: Video explícito con propiedades críticas para renderizado */
     #qr-video { width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
     .scan-overlay { position: absolute; inset: 0; pointer-events: none; border: 2px solid rgba(255,255,255,0.2); }
     .scan-line { position: absolute; top: 40%; left: 10%; right: 10%; height: 2px; background: #00ff88; box-shadow: 0 0 10px #00ff88; animation: scan 2s infinite ease-in-out; }
@@ -51,6 +50,7 @@
     .field { background: #f8f9fa; padding: 10px; border-radius: 8px; }
     .field-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
     .field-value { font-size: 0.95rem; font-weight: 600; margin-top: 4px; word-break: break-word; }
+    .raw-debug { margin-top: 8px; font-size: 0.7rem; color: #888; word-break: break-all; background: #f1f1f1; padding: 6px; border-radius: 4px; display: none; }
 
     .records-wrapper { background: var(--card); padding: 16px; border-radius: var(--radius); box-shadow: var(--shadow); overflow-x: auto; }
     .records-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
@@ -75,7 +75,7 @@
   <div class="app">
     <header>
       <h1>🔍 Escáner Cédula Colombia</h1>
-      <p>Motor ZXing PDF417 • Alta precisión • Requiere HTTPS/localhost</p>
+      <p>Motor ZXing PDF417 • Parser robusto • Requiere HTTPS/localhost</p>
     </header>
 
     <nav class="tabs">
@@ -86,7 +86,6 @@
     <section id="lectura" class="tab-content active">
       <div class="camera-wrapper">
         <div id="scanner-container">
-          <!-- FIX: Elemento <video> explícito con atributos obligatorios para WebRTC -->
           <video id="qr-video" autoplay playsinline muted></video>
           <div class="scan-overlay"><div class="scan-line"></div></div>
           <div id="loading" class="loading-overlay hidden">🔍 Inicializando cámara...</div>
@@ -115,6 +114,7 @@
           <div class="field"><div class="field-label">Fecha Expedición</div><div class="field-value" id="r-fecha-exp">-</div></div>
           <div class="field"><div class="field-label">Lugar Expedición</div><div class="field-value" id="r-lug-exp">-</div></div>
         </div>
+        <div id="raw-debug" class="raw-debug"></div>
       </div>
     </section>
 
@@ -180,7 +180,6 @@
       document.getElementById('btn-clear').addEventListener('click', clearRecords);
     }
 
-    // === FIX: APERTURA DE CÁMARA ESTABLE CON ZXING ===
     function startScanner() {
       if (isScanning) return;
       els.btnStart.disabled = true;
@@ -194,7 +193,6 @@
         codeReader = new ZXing.BrowserPDF417Reader();
         const videoEl = document.getElementById('qr-video');
         
-        // ZXing requiere pasar el elemento <video> directamente
         codeReader.decodeFromConstraints(
           { video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } },
           videoEl,
@@ -203,15 +201,11 @@
           }
         );
 
-        // Forzar reproducción inmediata (soluciona pantalla negra en Chrome/Safari)
         videoEl.play().catch(() => {});
-        
         isScanning = true;
         els.loading.classList.add('hidden');
         showToast('📷 Cámara activa. Alinea el PDF417 dentro del marco.');
-      } catch (err) {
-        handleError(err);
-      }
+      } catch (err) { handleError(err); }
     }
 
     function stopScanner() {
@@ -221,7 +215,6 @@
       els.btnStart.disabled = false;
       els.btnStop.disabled = true;
       els.loading.classList.add('hidden');
-      // Detener stream explícitamente para liberar cámara
       const videoEl = document.getElementById('qr-video');
       if (videoEl.srcObject) {
         videoEl.srcObject.getTracks().forEach(track => track.stop());
@@ -248,40 +241,86 @@
       showError(msg);
     }
 
+    // === PARSER ROBUSTO CEDULA COLOMBIANA ===
+    function parseCedulaColombiana(raw) {
+      // 1. Eliminar caracteres de control invisibles (comunes en PDF417)
+      let clean = raw.replace(/[\x00-\x1F\x7F-\x9F]/g, ' ').trim();
+      // 2. Unificar delimitadores a @
+      clean = clean.replace(/[@|~^]+/g, '@').replace(/\s+/g, ' ');
+      // 3. Separar y filtrar vacíos
+      let parts = clean.split('@').map(s => s.trim()).filter(s => s.length > 0);
+      
+      if (parts.length < 7) return { valid: false, raw };
+
+      const get = (i) => (parts[i] || '').replace(/[^\w\sáéíóúñÁÉÍÓÚÑ\-\.\/]/g, '').trim();
+      const formatDate = (str) => {
+        const d = str.replace(/\D/g, '');
+        if (d.length === 8 && parseInt(d.slice(0,4)) > 1900 && parseInt(d.slice(0,4)) < 2100) {
+          return `${d.slice(6,8)}/${d.slice(4,6)}/${d.slice(0,4)}`;
+        }
+        return str || 'N/A';
+      };
+
+      // Mapeo base oficial
+      let tipo = get(0) || 'CC';
+      let cedula = get(1).replace(/\D/g, '');
+      let nom1 = get(2), nom2 = get(3), ape1 = get(4), ape2 = get(5);
+      let fechaNacRaw = get(6), sexoRaw = get(7), estRaw = get(8), rhRaw = get(9);
+      let lugNac = get(10), fechaExpRaw = get(11), lugExp = get(12);
+
+      // Corrección dinámica si falta segundo nombre/apellido y se desplazan índices
+      if (!/^\d{8}$/.test(fechaNacRaw.replace(/\D/g,''))) {
+        const idxFecha = parts.findIndex(p => /^\d{8}$/.test(p.replace(/\D/g,'')));
+        if (idxFecha !== -1 && idxFecha > 1 && idxFecha < 8) {
+          fechaNacRaw = parts[idxFecha];
+          sexoRaw = parts[idxFecha + 1] || '';
+          estRaw = parts[idxFecha + 2] || '';
+          rhRaw = parts[idxFecha + 3] || '';
+          lugNac = parts[idxFecha + 4] || '';
+          fechaExpRaw = parts[idxFecha + 5] || '';
+          lugExp = parts[idxFecha + 6] || '';
+        }
+      }
+
+      // Normalización
+      const nombres = `${nom1} ${nom2}`.trim() || 'N/A';
+      const apellidos = `${ape1} ${ape2}`.trim() || 'N/A';
+      const sexo = (() => {
+        const s = sexoRaw.toUpperCase();
+        return s === 'M' ? 'Masculino' : s === 'F' ? 'Femenino' : s || 'N/A';
+      })();
+      const estatura = /^\d{2,3}$/.test(estRaw) ? `${estRaw} cm` : 'N/A';
+      const rh = /^[A-ZO][+-]$/.test(rhRaw.toUpperCase()) ? rhRaw.toUpperCase() : 'N/A';
+
+      return {
+        valid: true, tipo, cedula: cedula || 'N/A', nombres, apellidos,
+        nacimiento: formatDate(fechaNacRaw), sexo, estatura, rh,
+        lugarNacimiento: lugNac || 'N/A', fechaExpedicion: formatDate(fechaExpRaw),
+        lugarExpedicion: lugExp || 'N/A', timestamp: new Date().toLocaleString()
+      };
+    }
+
     function onScanSuccess(rawText) {
       stopScanner();
       const data = parseCedulaColombiana(rawText);
+      
       if (!data.valid) {
-        showError('❌ Formato no reconocido. Verifica iluminación y enfoque.');
+        showError('❌ Formato no reconocido. Asegura buena luz y enfoque estable.');
+        // Mostrar raw para debug si falla
+        const debugEl = document.getElementById('raw-debug');
+        debugEl.textContent = `🔍 RAW: ${rawText.replace(/\s+/g, ' ').trim()}`;
+        debugEl.style.display = 'block';
+        document.getElementById('result').classList.add('visible');
         return;
       }
+
       currentScanData = data;
       displayResult(data);
       saveRecord(data);
       els.btnNew.style.display = 'block';
+      document.getElementById('raw-debug').style.display = 'none';
       showToast('✅ Cédula decodificada y guardada.');
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-    }
-
-    function parseCedulaColombiana(raw) {
-      const clean = raw.replace(/[\n\r\t]/g, ' ').trim();
-      let parts = clean.split('@').filter(p => p.trim() !== '');
-      if (parts.length < 11) parts = clean.split(/[\s|]+/).filter(p => p.length > 0);
-      if (parts.length < 11) return { valid: false };
-
-      const get = (i) => (parts[i] || '').trim().replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ.,\-\/ ]/g, '');
-      const formatDate = (d) => (!d || d.length !== 8 || !/^\d{8}$/.test(d)) ? d : `${d.substring(6,8)}/${d.substring(4,6)}/${d.substring(0,4)}`;
-
-      return {
-        valid: true, tipo: get(0), cedula: get(1),
-        nombres: `${get(2)} ${get(3)}`.trim(), apellidos: `${get(4)} ${get(5)}`.trim(),
-        nacimiento: formatDate(get(6)),
-        sexo: (() => { const s = get(7).toUpperCase(); return s === 'M' ? 'Masculino' : s === 'F' ? 'Femenino' : s; })(),
-        estatura: get(8) ? `${get(8)} cm` : 'N/A',
-        rh: get(9).toUpperCase() || 'N/A',
-        lugarNacimiento: get(10), fechaExpedicion: formatDate(get(11)),
-        lugarExpedicion: get(12) || 'N/A', timestamp: new Date().toLocaleString()
-      };
     }
 
     function displayResult(d) {
