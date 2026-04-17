@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Escáner PDF417 de Alta Calidad para Cédula Colombiana">
+  <meta name="description" content="Escáner PDF417 para Cédula Colombiana">
   <meta name="theme-color" content="#0f172a">
   <title>🔬 Scanner PDF417 · Cédula CO</title>
   <style>
@@ -146,13 +146,14 @@
 
   <div id="toast" class="toast"></div>
 
-  <!-- ✅ MEJOR LIBRERÍA PARA PDF417 CON ALTA CALIDAD -->
+  <!-- ✅ LIBRERÍA OPTIMIZADA PARA PDF417 -->
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script>
     let html5QrCode, records = JSON.parse(localStorage.getItem('cedula_records') || '[]');
     let lastScanTime = 0;
     let isScanning = false;
-    const SCAN_COOLDOWN = 400; // Ultra rápido: 400ms
+    let scanInterval = null;
+    const SCAN_COOLDOWN = 300;
 
     const $ = id => document.getElementById(id);
     const els = {
@@ -181,7 +182,7 @@
 
     const vibrate = () => navigator.vibrate?.(100);
 
-    // ✅ PARSER OPTIMIZADO PARA CÉDULA COLOMBIANA
+    // ✅ PARSER PARA CÉDULA COLOMBIANA
     const parseCedulaColombiana = (raw) => {
       if (!raw || raw.length < 20) return null;
 
@@ -199,7 +200,6 @@
       };
       
       try {
-        // Decodificar Latin1 → UTF-8 para caracteres especiales
         let decoded = '';
         for (let i = 0; i < raw.length; i++) {
           const charCode = raw.charCodeAt(i);
@@ -218,11 +218,9 @@
         decoded = decoded.replace(/[\x00-\x1F\x7F]/g, ' ');
         decoded = decoded.replace(/\s+/g, ' ').trim();
         
-        // Número de documento (7-10 dígitos)
         const docMatch = decoded.match(/\b(\d{7,10})\b/);
         if (docMatch) fields.numeroIdentidad = docMatch[1];
         
-        // Fechas (DD/MM/YYYY o DD-MM-YYYY)
         const datePattern = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/g;
         const dates = [];
         let match;
@@ -232,18 +230,15 @@
         if (dates.length >= 1) fields.fechaNacimiento = dates[0];
         if (dates.length >= 2) fields.fechaExpedicion = dates[1];
         
-        // Sexo
         if (/MASCULINO|MASC|M(?=\s|$)/i.test(decoded) && !/FEM/i.test(decoded)) {
           fields.sexo = 'MASCULINO';
         } else if (/FEMENINO|FEM|F(?=\s|$)/i.test(decoded)) {
           fields.sexo = 'FEMENINO';
         }
         
-        // Grupo sanguíneo
         const bloodMatch = decoded.match(/\b([ABO][AB]?)\s*([+-])\b/i);
         if (bloodMatch) fields.gsRh = `${bloodMatch[1].toUpperCase()}${bloodMatch[2]}`;
         
-        // Estatura (en cm)
         const heightMatch = decoded.match(/\b(1\d{2})\s*CM\b/i);
         if (heightMatch) {
           fields.estatura = `${heightMatch[1]} cm`;
@@ -254,7 +249,6 @@
           }
         }
         
-        // Nombres y apellidos
         let textForNames = decoded;
         textForNames = textForNames.replace(fields.numeroIdentidad, ' ');
         textForNames = textForNames.replace(datePattern, ' ');
@@ -276,7 +270,6 @@
           fields.apellidos = words.slice(1).join(' ');
         }
         
-        // Lugar de expedición (ciudades principales)
         const ciudades = ['BOGOTA|BOGOTÁ', 'MEDELLIN|MEDELLÍN', 'CALI', 'BARRANQUILLA', 'CARTAGENA', 'BUCARAMANGA', 'PEREIRA', 'MANIZALES', 'CUCUTA|CÚCUTA', 'PASTO', 'VILLAVICENCIO', 'MONTERIA|MONTERÍA', 'VALLEDUPAR', 'SINCELEJO', 'IBAGUE|IBAGUÉ'];
         for (const ciudad of ciudades) {
           const ciudadMatch = decoded.match(new RegExp(`(${ciudad})`, 'i'));
@@ -384,16 +377,20 @@
       }
     };
 
+    // ✅ PROCESAR LECTURA - AQUÍ ESTÁ LA CLAVE
     const processScan = (text) => {
       const now = Date.now();
-      if (!text || now - lastScanTime < SCAN_COOLDOWN) return;
+      if (!text || text.trim().length < 10) return; // Validar texto mínimo
+      if (now - lastScanTime < SCAN_COOLDOWN) return;
       lastScanTime = now;
+      
+      console.log('✅ TEXTO DETECTADO:', text.substring(0, 50) + '...');
       
       vibrate();
       
       const fields = parseCedulaColombiana(text);
       if (!fields || fields.numeroIdentidad === 'N/D') {
-        toast('⚠️ No se pudo decodificar', 'error');
+        toast('⚠️ Código detectado pero no es cédula válida', 'error');
         return;
       }
       
@@ -412,75 +409,93 @@
       els.result.scrollIntoView({ behavior: 'smooth' });
       
       setStatus('✅ Lectura completada', 'success');
-      toast('🎉 Cédula escaneada', 'success');
+      toast('🎉 Cédula escaneada correctamente', 'success');
     };
 
-    // ✅ CONFIGURACIÓN DE CÁMARA DE ALTA CALIDAD
+    // ✅ ESCANEO CONTINUO MEJORADO - LA SOLUCIÓN REAL
     const startCamera = async () => {
       if (!window.location.protocol.startsWith('https') && window.location.hostname !== 'localhost') {
         return setStatus('⚠️ Requiere HTTPS o localhost', 'error');
       }
       
       try {
-        setStatus('📷 Iniciando cámara de alta calidad...', 'info');
+        setStatus('📷 Iniciando cámara...', 'info');
         els.start.disabled = true;
         els.stop.disabled = false;
         isScanning = true;
         
+        // Obtener cámaras disponibles
+        const cameras = await Html5Qrcode.getCameras();
+        console.log('📷 Cámaras disponibles:', cameras);
+        
+        if (!cameras || cameras.length === 0) {
+          throw new Error('No se encontraron cámaras');
+        }
+        
+        // Seleccionar cámara trasera
+        let selectedCamera = cameras[0].id;
+        for (const cam of cameras) {
+          if (cam.label.toLowerCase().includes('back') || 
+              cam.label.toLowerCase().includes('environment') ||
+              cam.label.toLowerCase().includes('trasera')) {
+            selectedCamera = cam.id;
+            break;
+          }
+        }
+        
+        console.log('📷 Usando cámara:', selectedCamera);
+        
         html5QrCode = new Html5Qrcode('reader');
         
-        // ✅ CONFIGURACIÓN OPTIMIZADA PARA MÁXIMA CALIDAD
+        // ✅ CONFIGURACIÓN CRÍTICA PARA PDF417
         const config = {
-          fps: 15,  // 15 frames por segundo (más rápido)
-          qrbox: { width: 350, height: 150 },  // Proporción PDF417 (más ancho)
-          aspectRatio: 2.33,  // Relación de aspecto para PDF417
-          disableFlip: false,  // Permitir flip para mejor detección
+          fps: 10,
+          qrbox: { width: 400, height: 160 },  // Más ancho para PDF417
+          aspectRatio: 2.5,  // Proporción PDF417
+          disableFlip: false,
           videoConstraints: {
-            facingMode: 'environment',  // Cámara trasera
-            width: { ideal: 1920, min: 1280 },  // ALTA RESOLUCIÓN
-            height: { ideal: 1080, min: 720 },  // ALTA RESOLUCIÓN
-            focusMode: 'continuous',  // Enfoque continuo
-            exposureMode: 'continuous',  // Exposición automática
-            whiteBalanceMode: 'continuous'  // Balance de blancos automático
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            focusMode: 'continuous',
+            exposureMode: 'continuous'
           }
         };
         
-        // Obtener todas las cámaras disponibles y seleccionar la trasera de mayor resolución
-        const cameras = await Html5Qrcode.getCameras();
-        let selectedCameraId = null;
-        
-        if (cameras && cameras.length) {
-          // Buscar cámara trasera (environment/back)
-          const backCamera = cameras.find(cam => 
-            cam.label.toLowerCase().includes('back') || 
-            cam.label.toLowerCase().includes('environment') ||
-            cam.label.toLowerCase().includes('trasera')
-          );
-          selectedCameraId = backCamera ? backCamera.id : cameras[0].id;
-        }
-        
         await html5QrCode.start(
-          selectedCameraId || { facingMode: 'environment' },
+          selectedCamera,
           config,
-          (decodedText) => processScan(decodedText),
-          (error) => { /* Ignorar errores de frame vacío */ }
+          (decodedText) => {
+            console.log('📦 Datos recibidos:', decodedText.substring(0, 50));
+            processScan(decodedText);
+          },
+          (errorMessage) => {
+            // Ignorar errores normales de escaneo
+            if (errorMessage && errorMessage.includes('No match')) {
+              console.log('🔍 Escaneando...');
+            }
+          }
         );
         
-        setStatus('🔍 Detectando PDF417... (Alta Calidad)', 'success');
+        setStatus('🔍 Detectando PDF417... (Mantén estable la cédula)', 'success');
+        
       } catch (err) {
-        console.error('Error cámara:', err);
-        setStatus('❌ Error: ' + err.message + '. Verifica permisos.', 'error');
+        console.error('❌ Error cámara:', err);
+        setStatus('❌ Error: ' + err.message + '. Verifica permisos y HTTPS.', 'error');
         els.start.disabled = false;
         els.stop.disabled = true;
         isScanning = false;
       }
     };
 
-    // ✅ DETENER CÁMARA (LIBERA CORRECTAMENTE)
     const stopCamera = async () => {
       if (html5QrCode) {
         await html5QrCode.stop();
         html5QrCode = null;
+      }
+      if (scanInterval) {
+        clearInterval(scanInterval);
+        scanInterval = null;
       }
       els.start.disabled = false;
       els.stop.disabled = true;
