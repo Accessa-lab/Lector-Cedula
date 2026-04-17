@@ -3,321 +3,291 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Escáner PDF417 optimizado para Cédula de Ciudadanía Colombiana">
-  <meta name="theme-color" content="#0f172a">
   <title>🔬 Scanner PDF417 · Cédula CO</title>
   <style>
-    :root {
-      --bg: #f8fafc; --surface: #ffffff; --text: #0f172a; --text-muted: #64748b;
-      --primary: #2563eb; --primary-hover: #1d4ed8; --success: #16a34a;
-      --error: #dc2626; --border: #e2e8f0; --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-      --radius: 12px; --font: system-ui, -apple-system, sans-serif;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #0f172a; --surface: #1e293b; --text: #f1f5f9; --text-muted: #94a3b8;
-        --border: #334155; --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.4);
-      }
-    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.5; padding: 1rem; }
+    body { 
+      font-family: system-ui, -apple-system, sans-serif; 
+      background: #0f172a; 
+      color: #f1f5f9; 
+      padding: 1rem;
+      line-height: 1.5;
+    }
     .container { max-width: 800px; margin: 0 auto; }
-    header { text-align: center; margin-bottom: 1.5rem; }
-    header h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
-    header p { color: var(--text-muted); font-size: 0.9rem; }
+    h1 { text-align: center; margin-bottom: 0.5rem; font-size: 1.5rem; }
+    .subtitle { text-align: center; color: #94a3b8; margin-bottom: 1.5rem; font-size: 0.9rem; }
     
-    .card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem; margin-bottom: 1rem; }
+    .card { 
+      background: #1e293b; 
+      border-radius: 12px; 
+      padding: 1rem; 
+      margin-bottom: 1rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
     
-    #video-container { position: relative; width: 100%; height: 320px; background: #000; border-radius: var(--radius); overflow: hidden; }
-    #video-container video { width: 100%; height: 100%; object-fit: cover; }
-    .guide-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; height: 130px; border: 3px solid rgba(37, 99, 235, 0.8); border-radius: 8px; pointer-events: none; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); }
-    .guide-overlay::after { content: 'Alinea el código PDF417 aquí'; position: absolute; bottom: -25px; left: 0; width: 100%; text-align: center; color: #fff; font-size: 0.8rem; font-weight: 500; }
+    #reader { 
+      width: 100%; 
+      height: 300px; 
+      background: #000; 
+      border-radius: 8px; 
+      overflow: hidden;
+      position: relative;
+    }
+    .guide {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 85%;
+      height: 120px;
+      border: 3px solid #2563eb;
+      border-radius: 8px;
+      pointer-events: none;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.6);
+    }
+    .guide::after {
+      content: 'Alinea el código PDF417 aquí';
+      position: absolute;
+      bottom: -28px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
     
-    .controls { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
-    button { padding: 0.6rem 1rem; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s; background: var(--primary); color: white; }
-    button:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
+    .controls { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+    button { 
+      padding: 0.7rem 1rem; 
+      border: none; 
+      border-radius: 8px; 
+      font-weight: 600; 
+      cursor: pointer; 
+      transition: all 0.2s;
+      font-size: 0.9rem;
+    }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
-    button.secondary { background: var(--border); color: var(--text); }
-    button.secondary:hover:not(:disabled) { background: #cbd5e1; }
-    button.danger { background: var(--error); }
-    button.success { background: var(--success); }
+    .btn-primary { background: #2563eb; color: white; flex: 1; }
+    .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+    .btn-stop { background: #dc2626; color: white; flex: 1; }
+    .btn-stop:hover:not(:disabled) { background: #b91c1c; }
+    .btn-secondary { background: #334155; color: #f1f5f9; }
+    .btn-secondary:hover { background: #475569; }
+    .btn-success { background: #16a34a; color: white; }
+    .btn-success:hover { background: #15803d; }
+    .btn-danger { background: #dc2626; color: white; }
     
-    .status { margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; }
-    .status.error { color: var(--error); }
-    .status.success { color: var(--success); }
+    .status { 
+      margin-top: 0.75rem; 
+      padding: 0.5rem; 
+      border-radius: 6px; 
+      font-size: 0.85rem;
+      text-align: center;
+    }
+    .status.error { background: rgba(220, 38, 38, 0.2); color: #f87171; }
+    .status.success { background: rgba(22, 163, 74, 0.2); color: #4ade80; }
+    .status.info { background: rgba(37, 99, 235, 0.2); color: #60a5fa; }
     
-    .field-grid { display: grid; gap: 0.75rem; margin: 1rem 0; }
-    .field-item { background: var(--bg); padding: 0.75rem; border-radius: 8px; }
-    .field-item strong { display: block; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem; }
-    .field-item span { font-size: 1rem; font-weight: 500; }
-    
-    .record-list { list-style: none; margin: 0.5rem 0; max-height: 400px; overflow-y: auto; }
-    .record-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; cursor: pointer; transition: background 0.2s; }
-    .record-item:hover { background: var(--bg); }
-    .record-item:last-child { border-bottom: none; }
-    .record-info { flex: 1; min-width: 0; }
-    .record-doc { font-weight: 600; font-size: 1rem; }
-    .record-name { font-size: 0.85rem; color: var(--text-muted); }
-    .record-date { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; }
-    .record-actions { display: flex; gap: 0.5rem; }
-    
-    .empty-state { text-align: center; padding: 2rem; color: var(--text-muted); font-style: italic; }
-    .toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--text); padding: 0.75rem 1rem; border-radius: 8px; box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 1000; border: 1px solid var(--border); }
-    .toast.show { opacity: 1; }
-    
-    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 2px solid var(--border); }
-    .tab { padding: 0.75rem 1.5rem; background: none; border: none; color: var(--text-muted); cursor: pointer; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -2px; }
-    .tab:hover { color: var(--text); }
-    .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
-    
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 2px solid #334155; }
+    .tab { 
+      padding: 0.75rem 1.5rem; 
+      background: none; 
+      border: none; 
+      color: #94a3b8; 
+      cursor: pointer; 
+      font-weight: 600;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+    }
+    .tab.active { color: #2563eb; border-bottom-color: #2563eb; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     
-    .file-input-wrapper { margin-top: 0.75rem; text-align: center; }
-    .file-input-wrapper label { display: inline-block; padding: 0.5rem 1rem; background: var(--border); color: var(--text); border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
-    .file-input-wrapper input { display: none; }
+    .field { 
+      background: #0f172a; 
+      padding: 0.75rem; 
+      border-radius: 8px; 
+      margin-bottom: 0.5rem;
+    }
+    .field-label { color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem; }
+    .field-value { font-size: 1rem; font-weight: 500; }
     
-    .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; }
-    .result-header h3 { font-size: 1.1rem; }
+    .record { 
+      background: #0f172a; 
+      padding: 1rem; 
+      border-radius: 8px; 
+      margin-bottom: 0.5rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .record:hover { background: #1e293b; }
+    .record-doc { font-weight: 600; font-size: 1.1rem; margin-bottom: 0.25rem; }
+    .record-name { color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.25rem; }
+    .record-date { color: #64748b; font-size: 0.75rem; }
     
-    @media (max-width: 480px) {
-      #video-container { height: 260px; }
+    .empty { text-align: center; padding: 2rem; color: #64748b; font-style: italic; }
+    .toast { 
+      position: fixed; 
+      bottom: 1rem; 
+      left: 50%; 
+      transform: translateX(-50%); 
+      background: #1e293b; 
+      padding: 0.75rem 1.5rem; 
+      border-radius: 8px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      opacity: 0; 
+      pointer-events: none; 
+      transition: opacity 0.3s;
+      z-index: 1000;
+      border: 1px solid #334155;
+    }
+    .toast.show { opacity: 1; }
+    
+    #rawData { 
+      background: #0f172a; 
+      color: #e2e8f0; 
+      padding: 0.75rem; 
+      border-radius: 8px; 
+      font-family: monospace; 
+      font-size: 0.75rem; 
+      overflow-x: auto; 
+      white-space: pre-wrap;
+      margin: 0.5rem 0;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    
+    .result-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    
+    @media (max-width: 640px) {
+      #reader { height: 240px; }
       .controls { flex-direction: column; }
       button { width: 100%; }
-      .tabs { overflow-x: auto; }
-      .tab { white-space: nowrap; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <header>
-      <h1>🔬 Scanner PDF417 · Cédula CO</h1>
-      <p>Escanea la parte posterior de la cédula colombiana</p>
-    </header>
+    <h1>🔬 Scanner PDF417 · Cédula CO</h1>
+    <p class="subtitle">Escanea la parte posterior de la cédula colombiana</p>
 
     <div class="tabs">
-      <button class="tab active" onclick="switchTab('scanner')">📷 Escáner</button>
-      <button class="tab" onclick="switchTab('records')">📋 Registros (<span id="totalRecords">0</span>)</button>
+      <button class="tab active" onclick="showTab('scanner')">📷 Escáner</button>
+      <button class="tab" onclick="showTab('records')">📋 Registros (<span id="recordCount">0</span>)</button>
     </div>
 
     <div id="scannerTab" class="tab-content active">
-      <section class="card">
-        <div id="video-container">
-          <video id="video" autoplay playsinline muted></video>
-          <div class="guide-overlay"></div>
+      <div class="card">
+        <div id="reader">
+          <div class="guide"></div>
         </div>
         <div class="controls">
-          <button id="btnStart">▶ Iniciar Cámara</button>
-          <button id="btnStop" disabled>■ Detener</button>
+          <button id="btnStart" class="btn-primary">▶ Iniciar Cámara</button>
+          <button id="btnStop" class="btn-stop" disabled>■ Detener</button>
         </div>
-        <div class="file-input-wrapper">
-          <label for="fileInput">📷 Subir foto del código (Fallback)</label>
-          <input type="file" id="fileInput" accept="image/*">
-        </div>
-        <div id="status" class="status">⏳ Esperando inicio...</div>
-      </section>
+        <div id="status" class="status info">⏳ Presiona "Iniciar Cámara" para comenzar</div>
+      </div>
 
-      <section class="card" id="resultSection" style="display:none;">
+      <div id="resultCard" class="card" style="display:none;">
         <div class="result-header">
-          <h3>📄 Resultado del Escaneo</h3>
-          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-            <button id="btnNewScan" class="success">🔄 Nueva Lectura</button>
-          </div>
+          <h2 style="font-size: 1.1rem;">📄 Resultado del Escaneo</h2>
+          <button id="btnNewScan" class="btn-success">🔄 Nueva Lectura</button>
         </div>
         
-        <h4 style="font-size:0.9rem; color:var(--text-muted); margin-bottom:0.5rem;">Información de la Cédula</h4>
-        <div id="parsedFields" class="field-grid"></div>
+        <div id="fieldsContainer"></div>
         
-        <div style="margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border);">
-          <details>
-            <summary style="cursor:pointer; color:var(--text-muted); font-size:0.85rem;">Ver datos crudos (PDF417)</summary>
-            <pre id="rawData" style="background:#1e293b; color:#e2e8f0; padding:0.75rem; border-radius:8px; font-family:monospace; font-size:0.75rem; overflow-x:auto; margin-top:0.5rem; white-space:pre-wrap;"></pre>
-          </details>
-        </div>
-      </section>
+        <details style="margin-top: 1rem;">
+          <summary style="cursor: pointer; color: #94a3b8; font-size: 0.85rem;">Ver datos crudos PDF417</summary>
+          <pre id="rawData"></pre>
+          <button id="btnCopy" class="btn-secondary" style="margin-top: 0.5rem; width: 100%;">📋 Copiar Datos Crudos</button>
+        </details>
+      </div>
     </div>
 
     <div id="recordsTab" class="tab-content">
-      <section class="card">
-        <h3>📋 Registros Guardados</h3>
-        <div class="controls" style="margin: 0.75rem 0;">
-          <button id="btnExport" class="secondary">⬇ Exportar CSV</button>
-          <button id="btnClear" class="danger">🗑 Eliminar Todo</button>
+      <div class="card">
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+          <button id="btnExport" class="btn-secondary" style="flex: 1;">⬇ Exportar Excel</button>
+          <button id="btnClear" class="btn-danger" style="flex: 1;">🗑 Limpiar Todo</button>
         </div>
-        <ul id="recordList" class="record-list"></ul>
-        <p id="emptyState" class="empty-state">No hay registros aún. Escanea una cédula para comenzar.</p>
-      </section>
+        <div id="recordsList"></div>
+        <div id="emptyState" class="empty">📋 No hay registros aún.<br>Escanea una cédula para comenzar.</div>
+      </div>
     </div>
   </div>
 
   <div id="toast" class="toast"></div>
 
-  <script type="module">
-    import { BrowserMultiFormatReader } from 'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.1/+esm';
-    import { BarcodeFormat, DecodeHintType } from 'https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/+esm';
-
-    let codeReader, scanStream, records = JSON.parse(localStorage.getItem('cedula_records') || '[]');
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script>
+    let html5QrCode, records = JSON.parse(localStorage.getItem('cedula_records') || '[]');
     let isScanning = false;
-    let scanInterval = null;
-    const SCAN_COOLDOWN = 500; // Más rápido
 
-    const els = {
-      start: document.getElementById('btnStart'),
-      stop: document.getElementById('btnStop'),
-      status: document.getElementById('status'),
-      video: document.getElementById('video'),
-      result: document.getElementById('resultSection'),
-      rawData: document.getElementById('rawData'),
-      parsed: document.getElementById('parsedFields'),
-      newScan: document.getElementById('btnNewScan'),
-      list: document.getElementById('recordList'),
-      totalRecords: document.getElementById('totalRecords'),
-      empty: document.getElementById('emptyState'),
-      clear: document.getElementById('btnClear'),
-      export: document.getElementById('btnExport'),
-      file: document.getElementById('fileInput'),
-      toast: document.getElementById('toast')
+    const $ = id => document.getElementById(id);
+    const toast = (msg, duration = 2500) => {
+      $('toast').textContent = msg;
+      $('toast').classList.add('show');
+      setTimeout(() => $('toast').classList.remove('show'), duration);
     };
 
-    const toast = (msg, type = 'info') => {
-      els.toast.textContent = msg;
-      els.toast.style.borderColor = type === 'error' ? 'var(--error)' : type === 'success' ? 'var(--success)' : 'var(--border)';
-      els.toast.classList.add('show');
-      setTimeout(() => els.toast.classList.remove('show'), 2500);
-    };
-
-    const vibrate = () => navigator.vibrate?.(50);
-
-    // Parser específico para cédula colombiana - Formato Registraduría
     const parseCedulaColombiana = (raw) => {
-      if (!raw || raw.length < 30) return null;
-
-      const fields = {
-        numeroIdentidad: 'N/D',
-        nombres: 'N/D',
-        apellidos: 'N/D',
-        fechaNacimiento: 'N/D',
-        lugarNacimiento: 'N/D',
-        estatura: 'N/D',
-        gsRh: 'N/D',
-        sexo: 'N/D',
-        fechaExpedicion: 'N/D',
-        lugarExpedicion: 'N/D'
-      };
-
-      try {
-        // Decodificar caracteres especiales
-        let decoded = raw;
-        
-        // Reemplazar caracteres problemáticos
-        decoded = decoded.replace(/[@#*]/g, ' ');
-        decoded = decoded.replace(/\s+/g, ' ').trim();
-
-        // Extraer número de cédula (generalmente al inicio, 7-10 dígitos consecutivos)
-        const docMatch = decoded.match(/^(\d{7,10})\s/);
-        if (docMatch) {
-          fields.numeroIdentidad = docMatch[1];
-        }
-
-        // Buscar fechas en formato DD/MM/AAAA o DD-MM-AAAA
-        const datePattern = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/g;
-        const dates = [];
-        let match;
-        while ((match = datePattern.exec(decoded)) !== null) {
-          dates.push(`${match[1].padStart(2,'0')}/${match[2].padStart(2,'0')}/${match[3]}`);
-        }
-        
-        if (dates.length >= 1) fields.fechaNacimiento = dates[0];
-        if (dates.length >= 2) fields.fechaExpedicion = dates[1];
-
-        // Extraer sexo - buscar patrones comunes
-        if (/MASCULINO|MASC|M\s*$|^M\s/i.test(decoded)) fields.sexo = 'MASCULINO';
-        else if (/FEMENINO|FEM|F\s*$|^F\s/i.test(decoded)) fields.sexo = 'FEMENINO';
-
-        // Extraer grupo sanguíneo
-        const bloodMatch = decoded.match(/([ABO][ABO]?)\s*([+-])/i);
-        if (bloodMatch) {
-          fields.gsRh = `${bloodMatch[1].toUpperCase()}${bloodMatch[2]}`;
-        } else {
-          const bloodMatch2 = decoded.match(/(A|B|AB|O)\s*([+-])/i);
-          if (bloodMatch2) {
-            fields.gsRh = `${bloodMatch2[1].toUpperCase()}${bloodMatch2[2]}`;
-          }
-        }
-
-        // Extraer estatura (en cm - generalmente 3 dígitos entre 100-200)
-        const heightMatch = decoded.match(/\b(1\d{2})\s*CM\b/i);
-        if (heightMatch) {
-          fields.estatura = `${heightMatch[1]} cm`;
-        } else {
-          const heightMatch2 = decoded.match(/\b(1\d{2})\b/);
-          if (heightMatch2 && heightMatch2[1] >= 100 && heightMatch2[1] <= 200) {
-            fields.estatura = `${heightMatch2[1]} cm`;
-          }
-        }
-
-        // Extraer lugar de expedición (ciudades comunes de Colombia)
-        const ciudades = ['BOGOTA|BOGOTÁ|SANTA FE DE BOGOTA|SANTA FE DE BOGOTÁ', 
-                         'MEDELLIN|MEDELLÍN', 'CALI', 'BARRANQUILLA', 'CARTAGENA',
-                         'BUCARAMANGA', 'PEREIRA', 'MANIZALES', 'IBAGUE|IBAGUÉ',
-                         'CUCUTA|CÚCUTA', 'PASTO', 'VILLAVICENCIO', 'MONTERIA|MONTERÍA',
-                         'VALLEDUPAR', 'SINCELEJO', 'POPAYAN|POPAYÁN', 'TUNJA',
-                         'FLORENCIA', 'YOPAL', 'MOCOA', 'LETICIA', 'SAN ANDRES|SAN ANDRÉS'];
-        
-        for (const ciudad of ciudades) {
-          const ciudadMatch = decoded.match(new RegExp(`(${ciudad})`, 'i'));
-          if (ciudadMatch) {
-            fields.lugarExpedicion = ciudadMatch[1].toUpperCase();
-            break;
-          }
-        }
-
-        // Extraer nombres y apellidos
-        // Eliminar del texto lo que ya extrajimos
-        let textForNames = decoded;
-        textForNames = textForNames.replace(fields.numeroIdentidad, ' ');
-        textForNames = textForNames.replace(datePattern, ' ');
-        textForNames = textForNames.replace(/\b(1\d{2})\s*CM\b/i, ' ');
-        textForNames = textForNames.replace(/([ABO][ABO]?)\s*([+-])/i, ' ');
-        textForNames = textForNames.replace(new RegExp(`(${ciudades.join('|')})`, 'gi'), ' ');
-        textForNames = textForNames.replace(/(MASCULINO|FEMENINO|MASC|FEM)/gi, ' ');
-        textForNames = textForNames.replace(/\s+/g, ' ').trim();
-
-        // Dividir en palabras
-        const words = textForNames.split(' ').filter(w => w.length > 1 && !/^\d+$/.test(w));
-        
-        // Asumir formato: PRIMER_NOMBRE SEGUNDO_NOMBRE PRIMER_APELLIDO SEGUNDO_APELLIDO
-        if (words.length >= 4) {
-          fields.nombres = `${words[0]} ${words[1]}`;
-          fields.apellidos = `${words[2]} ${words[3]}`;
-        } else if (words.length === 3) {
-          fields.nombres = words[0];
-          fields.apellidos = `${words[1]} ${words[2]}`;
-        } else if (words.length === 2) {
-          fields.nombres = words[0];
-          fields.apellidos = words[1];
-        } else if (words.length === 1) {
-          fields.nombres = words[0];
-        }
-
-        // Si no se extrajo bien, intentar con otro método
-        if (fields.nombres === 'N/D' || fields.apellidos === 'N/D') {
-          // Buscar después del número de documento
-          const afterDoc = decoded.substring(fields.numeroIdentidad.length);
-          const nameWords = afterDoc.split(/\s+/).filter(w => w.length > 2 && !/^\d+$/.test(w) && w.length < 20);
-          
-          if (nameWords.length >= 4) {
-            fields.nombres = `${nameWords[0]} ${nameWords[1]}`;
-            fields.apellidos = `${nameWords[2]} ${nameWords[3]}`;
-          }
-        }
-
-        return fields;
-      } catch (e) {
-        console.error('Error parsing:', e);
-        return null;
+      if (!raw || raw.length < 20) return null;
+      
+      const fields = {};
+      const clean = raw.replace(/[^\x20-\x7E\u00C0-\u00FF]/g, ' ').replace(/\s+/g, ' ').trim();
+      
+      // Número de documento (primeros 7-10 dígitos)
+      const docMatch = clean.match(/^(\d{7,10})/);
+      fields.numeroIdentidad = docMatch ? docMatch[1] : 'N/D';
+      
+      // Fechas (DD/MM/YYYY o DD-MM-YYYY)
+      const dates = clean.match(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}/g) || [];
+      fields.fechaNacimiento = dates[0] || 'N/D';
+      fields.fechaExpedicion = dates[1] || 'N/D';
+      
+      // Sexo
+      const sexoMatch = clean.match(/(?:SEXO|SEX)[\s:]*([MF]|MASCULINO|FEMENINO)/i);
+      fields.sexo = sexoMatch ? 
+        (sexoMatch[1].toUpperCase().includes('M') && !sexoMatch[1].toUpperCase().includes('FEM') ? 'MASCULINO' : 'FEMENINO') : 'N/D';
+      
+      // Grupo sanguíneo
+      const gsMatch = clean.match(/([AABO][+-])\s*(?:RH|GRUPO)/i) || clean.match(/(?:GS|GRUPO)[\s:]*([AABO][+-])/i);
+      fields.gsRh = gsMatch ? gsMatch[1].toUpperCase() : 'N/D';
+      
+      // Estatura (XXX cm o X.XX m)
+      const alturaMatch = clean.match(/(\d{3})\s*CM/i) || clean.match(/(\d\.\d{2})\s*M/i);
+      fields.estatura = alturaMatch ? (alturaMatch[1] + (alturaMatch[0].includes('CM') ? ' cm' : ' m')) : 'N/D';
+      
+      // Nombres y apellidos - buscar patrones comunes
+      const afterDoc = clean.substring(fields.numeroIdentidad.length).trim();
+      const words = afterDoc.split(/\s+/).filter(w => w.length > 2 && !/\d/.test(w) && w.length < 30);
+      
+      if (words.length >= 4) {
+        fields.nombres = `${words[0]} ${words[1]}`.trim();
+        fields.apellidos = words.slice(2, 4).join(' ').trim();
+      } else if (words.length >= 2) {
+        fields.nombres = words[0];
+        fields.apellidos = words.slice(1).join(' ');
+      } else {
+        fields.nombres = 'N/D';
+        fields.apellidos = 'N/D';
       }
+      
+      // Lugares (después de fechas)
+      const lugarNacMatch = clean.match(/(?:NAC|NACIMIENTO)[\s:]+([A-Z\s]{3,})/i);
+      const lugarExpMatch = clean.match(/(?:EXP|EXPEDICION)[\s:]+([A-Z\s]{3,})/i);
+      fields.lugarNacimiento = lugarNacMatch ? lugarNacMatch[1].trim() : 'N/D';
+      fields.lugarExpedicion = lugarExpMatch ? lugarExpMatch[1].trim() : 'N/D';
+      
+      return fields;
     };
 
     const renderFields = (fields) => {
@@ -334,23 +304,15 @@
         { key: 'lugarExpedicion', label: 'Lugar de Expedición' }
       ];
       
-      els.parsed.innerHTML = order.map(({key, label}) => 
-        `<div class="field-item"><strong>${label}</strong><span>${fields[key] || 'N/D'}</span></div>`
+      $('fieldsContainer').innerHTML = order.map(({key, label}) => 
+        `<div class="field">
+          <div class="field-label">${label}</div>
+          <div class="field-value">${fields[key] || 'N/D'}</div>
+        </div>`
       ).join('');
     };
 
-    // Verificar si ya existe el registro
-    const findExistingRecord = (numeroIdentidad) => {
-      return records.find(r => r.fields.numeroIdentidad === numeroIdentidad);
-    };
-
     const saveRecord = (fields, raw) => {
-      // Verificar si ya existe
-      const existing = findExistingRecord(fields.numeroIdentidad);
-      if (existing) {
-        return existing;
-      }
-      
       const record = {
         id: Date.now(),
         fields,
@@ -359,250 +321,177 @@
       };
       records.unshift(record);
       localStorage.setItem('cedula_records', JSON.stringify(records));
-      updateRecordsUI();
+      updateRecords();
       return record;
     };
 
-    const updateRecordsUI = () => {
-      els.totalRecords.textContent = records.length;
-      els.empty.style.display = records.length ? 'none' : 'block';
+    const updateRecords = () => {
+      $('recordCount').textContent = records.length;
+      $('emptyState').style.display = records.length ? 'none' : 'block';
       
-      els.list.innerHTML = records.map(record => `
-        <li class="record-item" onclick="viewRecord(${record.id})">
-          <div class="record-info">
-            <div class="record-doc">${record.fields.numeroIdentidad || 'N/D'}</div>
-            <div class="record-name">${record.fields.nombres || ''} ${record.fields.apellidos || ''}</div>
-            <div class="record-date">${record.timestamp}</div>
-          </div>
-          <div class="record-actions">
-            <button class="secondary" onclick="event.stopPropagation(); deleteRecord(${record.id})" style="padding:0.4rem;">🗑</button>
-          </div>
-        </li>
+      $('recordsList').innerHTML = records.map(r => `
+        <div class="record" onclick="viewRecord(${r.id})">
+          <div class="record-doc">${r.fields.numeroIdentidad}</div>
+          <div class="record-name">${r.fields.nombres} ${r.fields.apellidos}</div>
+          <div class="record-date">${r.timestamp}</div>
+        </div>
       `).join('');
     };
 
     window.viewRecord = (id) => {
       const record = records.find(r => r.id === id);
       if (!record) return;
-      
-      switchTab('scanner');
-      els.rawData.textContent = record.raw;
+      showTab('scanner');
+      $('rawData').textContent = record.raw;
       renderFields(record.fields);
-      els.result.style.display = 'block';
-      els.result.scrollIntoView({ behavior: 'smooth' });
-      toast('✅ Registro cargado', 'success');
+      $('resultCard').style.display = 'block';
+      $('resultCard').scrollIntoView({ behavior: 'smooth' });
+      toast('Registro cargado');
     };
 
-    window.deleteRecord = (id) => {
-      if (!confirm('¿Eliminar este registro?')) return;
-      records = records.filter(r => r.id !== id);
-      localStorage.setItem('cedula_records', JSON.stringify(records));
-      updateRecordsUI();
-      toast('Registro eliminado', 'success');
-    };
-
-    window.switchTab = (tab) => {
+    window.showTab = (tab) => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       
       if (tab === 'scanner') {
         document.querySelector('.tab:nth-child(1)').classList.add('active');
-        document.getElementById('scannerTab').classList.add('active');
+        $('scannerTab').classList.add('active');
       } else {
         document.querySelector('.tab:nth-child(2)').classList.add('active');
-        document.getElementById('recordsTab').classList.add('active');
-        updateRecordsUI();
+        $('recordsTab').classList.add('active');
+        updateRecords();
       }
     };
 
-    const processScan = (text) => {
-      if (!text || text.length < 20) return;
+    const onScanSuccess = (decodedText) => {
+      if (!decodedText || decodedText.length < 20) return;
       
-      vibrate();
-      
-      const fields = parseCedulaColombiana(text);
+      const fields = parseCedulaColombiana(decodedText);
       if (!fields) {
-        toast('⚠️ No se pudo decodificar', 'error');
+        toast('⚠️ No se pudo decodificar correctamente', 3000);
         return;
       }
       
-      // Verificar si ya existe
-      const existing = findExistingRecord(fields.numeroIdentidad);
-      if (existing) {
-        toast('📋 Cédula ya registrada - Cargando datos', 'success');
-        viewRecord(existing.id);
-        return;
-      }
-      
-      saveRecord(fields, text);
-      
-      els.rawData.textContent = text;
+      saveRecord(fields, decodedText);
+      $('rawData').textContent = decodedText;
       renderFields(fields);
-      els.result.style.display = 'block';
-      els.result.scrollIntoView({ behavior: 'smooth' });
-      
-      setStatus('✅ Lectura completada', 'success');
-      toast('🎉 Cédula escaneada', 'success');
+      $('resultCard').style.display = 'block';
+      $('status').textContent = '✅ Lectura completada';
+      $('status').className = 'status success';
+      toast('🎉 Cédula escaneada correctamente');
     };
 
-    const initCamera = async () => {
+    const onScanFailure = (error) => {
+      // Ignorar errores normales de escaneo
+    };
+
+    $('btnStart').addEventListener('click', async () => {
       if (!window.location.protocol.startsWith('https') && window.location.hostname !== 'localhost') {
-        return setStatus('⚠️ Requiere HTTPS', 'error');
+        $('status').textContent = '⚠️ Requiere HTTPS o localhost';
+        $('status').className = 'status error';
+        return;
       }
-      
+
       try {
-        setStatus('📷 Iniciando...', '');
-        els.start.disabled = true;
-        els.stop.disabled = false;
+        $('status').textContent = '📷 Iniciando cámara...';
+        $('status').className = 'status info';
+        $('btnStart').disabled = true;
+
+        html5QrCode = new Html5Qrcode("reader");
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          { 
+            fps: 10, 
+            qrbox: { width: 300, height: 140 },
+            aspectRatio: 2.0,
+            disableFlip: false
+          },
+          onScanSuccess,
+          onScanFailure
+        );
+
+        $('btnStop').disabled = false;
+        $('status').textContent = '🔍 Detectando código PDF417...';
+        $('status').className = 'status success';
         isScanning = true;
-        
-        codeReader = new BrowserMultiFormatReader();
-        const hints = new Map();
-        hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.PDF_417]);
-        hints.set(DecodeHintType.TRY_HARDER, true);
-        codeReader.setHints(hints);
-
-        const videoConstraints = { 
-          facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        };
-        
-        scanStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
-        els.video.srcObject = scanStream;
-        await els.video.play();
-
-        // Escaneo continuo más rápido
-        const scanLoop = async () => {
-          if (!isScanning) return;
-          
-          try {
-            const result = await codeReader.decodeFromVideoElement(els.video);
-            if (result?.text) {
-              processScan(result.text);
-            }
-          } catch (e) {
-            // Sin código detectado - continuar
-          }
-          
-          if (isScanning) {
-            scanInterval = setTimeout(scanLoop, 100); // Intentar cada 100ms
-          }
-        };
-        
-        scanLoop();
-        setStatus('🔍 Detectando...', 'success');
       } catch (err) {
         console.error(err);
-        setStatus('❌ Error cámara', 'error');
-        els.start.disabled = false;
-        els.stop.disabled = true;
-        isScanning = false;
+        $('status').textContent = '⚠️ No se pudo acceder a la cámara. Verifica los permisos del navegador.';
+        $('status').className = 'status error';
+        $('btnStart').disabled = false;
       }
-    };
+    });
 
-    const stopCamera = () => {
+    $('btnStop').addEventListener('click', async () => {
+      if (html5QrCode) {
+        await html5QrCode.stop();
+        html5QrCode = null;
+      }
+      $('btnStart').disabled = false;
+      $('btnStop').disabled = true;
+      $('status').textContent = '⏹ Cámara detenida';
+      $('status').className = 'status info';
       isScanning = false;
-      
-      if (scanInterval) {
-        clearTimeout(scanInterval);
-        scanInterval = null;
-      }
-      
-      if (scanStream) {
-        scanStream.getTracks().forEach(track => {
-          track.stop();
-        });
-        scanStream = null;
-      }
-      
-      if (codeReader) {
-        codeReader.reset();
-        codeReader = null;
-      }
-      
-      els.video.srcObject = null;
-      els.start.disabled = false;
-      els.stop.disabled = true;
-      setStatus('⏹ Detenido', '');
-    };
-
-    const setStatus = (msg, type = '') => {
-      els.status.textContent = msg;
-      els.status.className = `status ${type}`;
-    };
-
-    // Nueva lectura
-    els.newScan.addEventListener('click', () => {
-      els.result.style.display = 'none';
-      setStatus('🔍 Listo para siguiente...', '');
-      els.video.scrollIntoView({ behavior: 'smooth' });
     });
 
-    // Fallback Imagen
-    els.file.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      
-      setStatus('📷 Procesando...', '');
-      try {
-        const reader = new FileReader();
-        reader.onload = async (ev) => {
-          const tempReader = new BrowserMultiFormatReader();
-          tempReader.setHints(new Map([[DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.PDF_417]]]));
-          const result = await tempReader.decodeFromImageElement({ src: ev.target.result });
-          if (result?.text) {
-            processScan(result.text);
-            toast('✅ Leído desde imagen', 'success');
-          }
-        };
-        reader.readAsDataURL(file);
-      } catch {
-        toast('❌ No se detectó PDF417', 'error');
-      } finally {
-        e.target.value = '';
-        setStatus('⏹ Listo', '');
+    $('btnNewScan').addEventListener('click', () => {
+      $('resultCard').style.display = 'none';
+      $('status').textContent = '🔍 Listo para siguiente lectura...';
+      $('status').className = 'status success';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    $('btnCopy').addEventListener('click', () => {
+      navigator.clipboard.writeText($('rawData').textContent);
+      toast('📋 Datos copiados al portapapeles');
+    });
+
+    $('btnClear').addEventListener('click', () => {
+      if (confirm('¿Eliminar todos los registros?')) {
+        records = [];
+        localStorage.setItem('cedula_records', JSON.stringify(records));
+        updateRecords();
+        toast('🗑 Todos los registros eliminados');
       }
     });
 
-    // Export CSV
-    const exportCSV = () => {
-      if (!records.length) return toast('⚠️ Sin registros', 'error');
+    $('btnExport').addEventListener('click', () => {
+      if (!records.length) {
+        toast('⚠️ No hay registros para exportar');
+        return;
+      }
       
       const headers = ['Fecha', 'Número', 'Nombres', 'Apellidos', 'Fecha Nac.', 'Lugar Nac.', 'Estatura', 'GS RH', 'Sexo', 'Fecha Exp.', 'Lugar Exp.'];
       const rows = records.map(r => [
-        `"${r.timestamp}"`, `"${r.fields.numeroIdentidad}"`, `"${r.fields.nombres}"`,
-        `"${r.fields.apellidos}"`, `"${r.fields.fechaNacimiento}"`, `"${r.fields.lugarNacimiento}"`,
-        `"${r.fields.estatura}"`, `"${r.fields.gsRh}"`, `"${r.fields.sexo}"`,
-        `"${r.fields.fechaExpedicion}"`, `"${r.fields.lugarExpedicion}"`
+        `"${r.timestamp}"`,
+        `"${r.fields.numeroIdentidad}"`,
+        `"${r.fields.nombres}"`,
+        `"${r.fields.apellidos}"`,
+        `"${r.fields.fechaNacimiento}"`,
+        `"${r.fields.lugarNacimiento}"`,
+        `"${r.fields.estatura}"`,
+        `"${r.fields.gsRh}"`,
+        `"${r.fields.sexo}"`,
+        `"${r.fields.fechaExpedicion}"`,
+        `"${r.fields.lugarExpedicion}"`
       ]);
       
       const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
       const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
+      a.href = url;
       a.download = `cedulas_${new Date().toISOString().slice(0,10)}.csv`;
       a.click();
-      URL.revokeObjectURL(a.href);
-      toast('⬇ CSV descargado', 'success');
-    };
-
-    // Listeners
-    els.start.addEventListener('click', initCamera);
-    els.stop.addEventListener('click', stopCamera);
-    els.clear.addEventListener('click', () => { 
-      if (confirm('¿Eliminar TODOS los registros?')) { 
-        records = []; 
-        localStorage.setItem('cedula_records', JSON.stringify(records));
-        updateRecordsUI(); 
-        toast('Registros eliminados', 'success');
-      } 
+      URL.revokeObjectURL(url);
+      toast('⬇ Excel descargado');
     });
-    els.export.addEventListener('click', exportCSV);
-    window.addEventListener('beforeunload', stopCamera);
 
-    // Init
-    updateRecordsUI();
+    window.addEventListener('beforeunload', () => {
+      if (html5QrCode) html5QrCode.stop();
+    });
+
+    updateRecords();
   </script>
 </body>
 </html>
