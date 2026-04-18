@@ -2,116 +2,107 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Escáner Cédula Colombia | ZXing PDF417</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scanner PDF417 · Cédula CO</title>
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js"></script>
   <style>
-    :root {
-      --bg: #f5f7fa; --card: #ffffff; --primary: #0056b3; --primary-hover: #004494;
-      --success: #28a745; --danger: #dc3545; --text: #212529; --text-muted: #6c757d;
-      --border: #dee2e6; --shadow: 0 4px 12px rgba(0,0,0,0.08); --radius: 12px;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 16px; }
-    .app { max-width: 800px; margin: 0 auto; }
-    header { text-align: center; margin-bottom: 16px; }
-    header h1 { font-size: 1.5rem; color: var(--primary); }
-    header p { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
-
-    .tabs { display: flex; gap: 6px; margin-bottom: 16px; background: var(--card); padding: 4px; border-radius: var(--radius); box-shadow: var(--shadow); }
-    .tab { flex: 1; padding: 12px; border: none; background: transparent; cursor: pointer; font-weight: 500; border-radius: 8px; transition: 0.2s; font-size: 0.9rem; }
-    .tab.active { background: var(--primary); color: white; }
-    .tab-content { display: none; animation: fadeIn 0.3s; }
-    .tab-content.active { display: block; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
-    .camera-wrapper { background: var(--card); padding: 16px; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px; }
-    #scanner-container { position: relative; width: 100%; min-height: 320px; background: #111; border-radius: 8px; overflow: hidden; }
-    #qr-video { width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
-    .scan-overlay { position: absolute; inset: 0; pointer-events: none; border: 2px solid rgba(255,255,255,0.2); }
-    .scan-line { position: absolute; top: 40%; left: 10%; right: 10%; height: 2px; background: #00ff88; box-shadow: 0 0 10px #00ff88; animation: scan 2s infinite ease-in-out; }
-    @keyframes scan { 0%,100% { top: 40%; } 50% { top: 60%; } }
-    .loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; color: white; font-size: 0.9rem; z-index: 2; transition: opacity 0.3s; }
-    .hidden { opacity: 0; pointer-events: none; }
-
-    .controls { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-    .btn { padding: 12px 16px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; flex: 1; min-width: 120px; font-size: 0.9rem; }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-primary:hover { background: var(--primary-hover); }
-    .btn-danger { background: var(--danger); color: white; }
-    .btn-success { background: var(--success); color: white; }
-    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-    .result-card { background: var(--card); padding: 16px; border-radius: var(--radius); box-shadow: var(--shadow); display: none; margin-top: 16px; }
-    .result-card.visible { display: block; animation: fadeIn 0.3s; }
-    .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-    .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
-    .field { background: #f8f9fa; padding: 10px; border-radius: 8px; }
-    .field-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-    .field-value { font-size: 0.95rem; font-weight: 600; margin-top: 4px; word-break: break-word; color: #2c3e50; }
-
-    .records-wrapper { background: var(--card); padding: 16px; border-radius: var(--radius); box-shadow: var(--shadow); overflow-x: auto; }
-    .records-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
-    table { width: 100%; border-collapse: collapse; min-width: 650px; }
-    th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
-    th { background: #f8f9fa; position: sticky; top: 0; font-weight: 600; }
-    .btn-sm { padding: 6px 10px; font-size: 0.75rem; }
-    .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 0.9rem; }
-
-    #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 8px; opacity: 0; transition: 0.3s; pointer-events: none; z-index: 999; font-size: 0.9rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-    #toast.show { opacity: 1; transform: translateX(-50%) translateY(-10px); }
-
-    @media (max-width: 600px) {
-      .result-grid { grid-template-columns: 1fr 1fr; }
-      .controls { flex-direction: column; }
-      table { min-width: auto; font-size: 0.8rem; }
-      th, td { padding: 8px 6px; }
-    }
+    :root{--primary:#0056b3;--danger:#dc3545;--success:#28a745;--bg:#f8f9fa;--card:#fff;--text:#212529}
+    *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,sans-serif}
+    body{background:var(--bg);color:var(--text);padding:16px}
+    .app{max-width:800px;margin:0 auto}
+    header{text-align:center;margin-bottom:20px;padding:16px;background:var(--card);border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+    header h1{font-size:1.5rem;color:var(--primary);margin-bottom:4px}
+    header p{font-size:0.9rem;color:#6c757d}
+    .tabs{display:flex;gap:8px;margin-bottom:16px}
+    .tab{flex:1;padding:12px;border:none;background:var(--card);cursor:pointer;font-weight:500;border-radius:8px;transition:0.2s}
+    .tab.active{background:var(--primary);color:#fff}
+    .tab-content{display:none}
+    .tab-content.active{display:block}
+    .camera-wrapper{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);margin-bottom:16px}
+    #scanner-container{position:relative;width:100%;min-height:300px;background:#111;border-radius:8px;overflow:hidden}
+    #qr-video{width:100%;height:100%;object-fit:cover}
+    .scan-overlay{position:absolute;inset:0;pointer-events:none;border:2px solid rgba(255,255,255,0.3)}
+    .scan-line{position:absolute;top:40%;left:10%;right:10%;height:2px;background:#00ff88;box-shadow:0 0 10px #00ff88;animation:scan 2s infinite}
+    @keyframes scan{0%,100%{top:40%}50%{top:60%}}
+    .loading{text-align:center;padding:20px;color:#fff}
+    .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+    .btn{padding:14px;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:0.2s;font-size:1rem}
+    .btn-primary{background:var(--primary);color:#fff}
+    .btn-danger{background:var(--danger);color:#fff}
+    .btn-success{background:var(--success);color:#fff}
+    .btn:disabled{opacity:0.6;cursor:not-allowed}
+    .result-card{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);margin-top:16px;display:none}
+    .result-card.visible{display:block}
+    .result-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #dee2e6}
+    .result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+    .field{background:var(--bg);padding:12px;border-radius:8px}
+    .field-label{font-size:0.75rem;color:#6c757d;text-transform:uppercase;margin-bottom:4px}
+    .field-value{font-size:1rem;font-weight:600;word-break:break-word}
+    .records-wrapper{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+    .records-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px}
+    table{width:100%;border-collapse:collapse;overflow-x:auto}
+    th,td{padding:10px;text-align:left;border-bottom:1px solid #dee2e6;font-size:0.9rem}
+    th{background:var(--bg);font-weight:600}
+    .btn-sm{padding:6px 12px;font-size:0.85rem}
+    .empty-state{text-align:center;padding:40px;color:#6c757d}
+    #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:12px 24px;border-radius:8px;opacity:0;transition:0.3s;pointer-events:none;z-index:999}
+    #toast.show{opacity:1;transform:translateX(-50%) translateY(-10px)}
+    @media(max-width:600px){.result-grid{grid-template-columns:1fr}.controls{grid-template-columns:1fr}table{font-size:0.8rem}th,td{padding:8px 6px}}
   </style>
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>🔍 Escáner Cédula Colombia</h1>
-      <p>Motor ZXing nativo • PDF417 directo • HTTPS/localhost requerido</p>
+      <h1>🔬 PDF417 Scanner</h1>
+      <p>Cédula colombiana</p>
     </header>
 
     <nav class="tabs">
-      <button class="tab active" data-tab="lectura">📷 LECTURA</button>
-      <button class="tab" data-tab="registros">📋 REGISTROS (<span id="count">0</span>)</button>
+      <button class="tab active" data-tab="escaner">📷 Escáner</button>
+      <button class="tab" data-tab="registros">📋 Registros <span id="count">0</span></button>
     </nav>
 
-    <section id="lectura" class="tab-content active">
+    <section id="escaner" class="tab-content active">
       <div class="camera-wrapper">
         <div id="scanner-container">
           <video id="qr-video" autoplay playsinline muted></video>
           <div class="scan-overlay"><div class="scan-line"></div></div>
-          <div id="loading" class="loading-overlay hidden">🔍 Inicializando cámara...</div>
+          <div id="loading" class="loading" style="display:none">
+            <div>📷 Iniciando cámara...</div>
+          </div>
+          <div id="camera-error" class="loading" style="display:none;color:#ff6b6b">
+            <div>⚠️ No se pudo acceder a la cámara.</div>
+            <div style="font-size:0.9rem;margin-top:8px">Verifica los permisos del navegador.<br>Requiere HTTPS o localhost</div>
+          </div>
         </div>
         <div class="controls">
-          <button id="btn-start" class="btn btn-primary">▶ Iniciar Lectura</button>
-          <button id="btn-stop" class="btn btn-danger" disabled>■ Detener Lectura</button>
-          <button id="btn-new" class="btn btn-success" style="display:none;">🔄 Lectura Nueva</button>
+          <button id="btn-start" class="btn btn-primary">▶ Iniciar</button>
+          <button id="btn-stop" class="btn btn-danger" disabled>■ Detener</button>
         </div>
       </div>
 
       <div id="result" class="result-card">
         <div class="result-header">
           <h3>✅ Cédula Decodificada</h3>
-          <span id="timestamp" class="field-label"></span>
+          <span id="timestamp" style="font-size:0.9rem;color:#6c757d"></span>
         </div>
         <div class="result-grid">
+          <div class="field"><div class="field-label">Tipo Documento</div><div class="field-value" id="r-tipo">-</div></div>
+          <div class="field"><div class="field-label">Número Cédula</div><div class="field-value" id="r-cedula">-</div></div>
           <div class="field"><div class="field-label">Nombres</div><div class="field-value" id="r-nombres">-</div></div>
           <div class="field"><div class="field-label">Apellidos</div><div class="field-value" id="r-apellidos">-</div></div>
-          <div class="field"><div class="field-label">Número Cédula</div><div class="field-value" id="r-cedula">-</div></div>
           <div class="field"><div class="field-label">Fecha Nacimiento</div><div class="field-value" id="r-nacimiento">-</div></div>
-          <div class="field"><div class="field-label">Lugar Nacimiento</div><div class="field-value" id="r-lug-nac">-</div></div>
           <div class="field"><div class="field-label">Sexo</div><div class="field-value" id="r-sexo">-</div></div>
           <div class="field"><div class="field-label">Estatura</div><div class="field-value" id="r-estatura">-</div></div>
           <div class="field"><div class="field-label">RH</div><div class="field-value" id="r-rh">-</div></div>
+          <div class="field"><div class="field-label">Lugar Nacimiento</div><div class="field-value" id="r-lug-nac">-</div></div>
           <div class="field"><div class="field-label">Fecha Expedición</div><div class="field-value" id="r-fecha-exp">-</div></div>
           <div class="field"><div class="field-label">Lugar Expedición</div><div class="field-value" id="r-lug-exp">-</div></div>
+        </div>
+        <div class="controls" style="margin-top:16px">
+          <button id="btn-copy" class="btn btn-primary">📋 Copiar Datos</button>
+          <button id="btn-new" class="btn btn-success">🔄 Nueva Lectura</button>
         </div>
       </div>
     </section>
@@ -119,19 +110,23 @@
     <section id="registros" class="tab-content">
       <div class="records-wrapper">
         <div class="records-header">
-          <h3>📂 Historial de Escaneos</h3>
-          <div style="display:flex; gap:8px;">
-            <button id="btn-export" class="btn btn-primary btn-sm">⬇ Exportar CSV</button>
-            <button id="btn-clear" class="btn btn-danger btn-sm">🗑 Limpiar Todo</button>
+          <h3>📋 Historial de Escaneos</h3>
+          <div style="display:flex;gap:8px">
+            <button id="btn-export" class="btn btn-primary btn-sm">⬇ Excel</button>
+            <button id="btn-clear" class="btn btn-danger btn-sm">🗑 Limpiar</button>
           </div>
         </div>
-        <table id="records-table" style="display:none;">
+        <table id="records-table" style="display:none">
           <thead>
-            <tr><th>Cédula</th><th>Nombres</th><th>Apellidos</th><th>F. Nac.</th><th>RH</th><th>Escaneado</th><th>Acción</th></tr>
+            <tr><th>Cédula</th><th>Nombres</th><th>Apellidos</th><th>F. Nac.</th><th>RH</th><th>Acción</th></tr>
           </thead>
           <tbody id="records-body"></tbody>
         </table>
-        <div id="empty-state" class="empty-state">📋 No hay registros aún. Escanea una cédula para comenzar.</div>
+        <div id="empty-state" class="empty-state">
+          <div style="font-size:3rem;margin-bottom:12px">📋</div>
+          <div>No hay registros aún.</div>
+          <div>Escanea una cédula para comenzar.</div>
+        </div>
       </div>
     </section>
   </div>
@@ -142,16 +137,20 @@
     let codeReader = null;
     let isScanning = false;
     let records = JSON.parse(localStorage.getItem('cedula_records')) || [];
-    let currentScanData = null;
+    let currentData = null;
 
     const els = {
       tabs: document.querySelectorAll('.tab'),
-      tabContents: document.querySelectorAll('.tab-content'),
+      contents: document.querySelectorAll('.tab-content'),
       btnStart: document.getElementById('btn-start'),
       btnStop: document.getElementById('btn-stop'),
       btnNew: document.getElementById('btn-new'),
+      btnCopy: document.getElementById('btn-copy'),
+      btnExport: document.getElementById('btn-export'),
+      btnClear: document.getElementById('btn-clear'),
       result: document.getElementById('result'),
       loading: document.getElementById('loading'),
+      cameraError: document.getElementById('camera-error'),
       recordsBody: document.getElementById('records-body'),
       emptyState: document.getElementById('empty-state'),
       recordsTable: document.getElementById('records-table'),
@@ -159,33 +158,40 @@
       toast: document.getElementById('toast')
     };
 
-    function init() { renderRecords(); setupTabs(); setupControls(); }
+    function init() {
+      renderRecords();
+      setupTabs();
+      setupControls();
+    }
+
     function setupTabs() {
       els.tabs.forEach(tab => {
         tab.addEventListener('click', () => {
           els.tabs.forEach(t => t.classList.remove('active'));
-          els.tabContents.forEach(c => c.classList.remove('active'));
+          els.contents.forEach(c => c.classList.remove('active'));
           tab.classList.add('active');
           document.getElementById(tab.dataset.tab).classList.add('active');
         });
       });
     }
+
     function setupControls() {
       els.btnStart.addEventListener('click', startScanner);
       els.btnStop.addEventListener('click', stopScanner);
-      els.btnNew.addEventListener('click', resetForNewScan);
-      document.getElementById('btn-export').addEventListener('click', exportCSV);
-      document.getElementById('btn-clear').addEventListener('click', clearRecords);
+      els.btnNew.addEventListener('click', resetScanner);
+      els.btnCopy.addEventListener('click', copyData);
+      els.btnExport.addEventListener('click', exportCSV);
+      els.btnClear.addEventListener('click', clearRecords);
     }
 
     async function startScanner() {
       if (isScanning) return;
+      
       els.btnStart.disabled = true;
       els.btnStop.disabled = false;
-      els.btnNew.style.display = 'none';
       els.result.classList.remove('visible');
-      els.loading.classList.remove('hidden');
-      currentScanData = null;
+      els.loading.style.display = 'block';
+      els.cameraError.style.display = 'none';
 
       try {
         const hints = new Map();
@@ -194,17 +200,9 @@
 
         codeReader = new ZXing.BrowserMultiFormatReader(hints);
         const videoEl = document.getElementById('qr-video');
-        
-        const constraints = {
-          video: {
-            facingMode: "environment",
-            width: { min: 1024, ideal: 1920 },
-            height: { min: 768, ideal: 1080 }
-          }
-        };
 
         await codeReader.decodeFromConstraints(
-          constraints,
+          { video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } },
           videoEl,
           (result, err) => {
             if (result) onScanSuccess(result.getText());
@@ -212,11 +210,17 @@
         );
 
         if (videoEl.paused) await videoEl.play().catch(() => {});
-        
+
         isScanning = true;
-        els.loading.classList.add('hidden');
-        showToast('📷 Cámara activa. Alinea el PDF417 dentro del marco.');
-      } catch (err) { handleError(err); }
+        els.loading.style.display = 'none';
+        showToast('📷 Cámara activa - Alinea el PDF417');
+      } catch (err) {
+        els.loading.style.display = 'none';
+        els.cameraError.style.display = 'block';
+        els.btnStart.disabled = false;
+        els.btnStop.disabled = true;
+        console.error('Camera error:', err);
+      }
     }
 
     function stopScanner() {
@@ -225,163 +229,273 @@
       isScanning = false;
       els.btnStart.disabled = false;
       els.btnStop.disabled = true;
-      els.loading.classList.add('hidden');
+      els.loading.style.display = 'none';
       
       const videoEl = document.getElementById('qr-video');
       if (videoEl.srcObject) {
         videoEl.srcObject.getTracks().forEach(track => track.stop());
         videoEl.srcObject = null;
       }
-      showToast('🛑 Cámara detenida.');
+      showToast('🛑 Cámara detenida');
     }
 
-    function resetForNewScan() {
+    function resetScanner() {
       els.result.classList.remove('visible');
-      els.btnNew.style.display = 'none';
-      currentScanData = null;
+      currentData = null;
       startScanner();
     }
 
-    function handleError(err) {
-      els.loading.classList.add('hidden');
-      isScanning = false;
-      els.btnStart.disabled = false;
-      els.btnStop.disabled = true;
-      
-      let msg = '⚠️ No se pudo iniciar la cámara.';
-      if (err.name === 'NotAllowedError') msg = '⚠️ Permiso de cámara denegado.';
-      else if (err.name === 'NotFoundError') msg = '⚠️ No se detectó cámara.';
-      else if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-        msg = '⚠️ Requiere HTTPS o localhost.';
-      }
-      showError(msg);
-    }
-
-    // === PARSER MEJORADO - FORMATO OFICIAL CÉDULA COLOMBIANA ===
-    function parseCedulaColombiana(raw) {
+    // === PARSER MEJORADO PARA CÉDULA COLOMBIANA ===
+    function parseCedulaColombiana(rawText) {
       try {
-        // Limpiar caracteres de control pero mantener @ y espacios
-        let clean = raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
-        clean = clean.replace(/\r\n/g, '@').replace(/\n/g, '@');
+        // 1. Limpiar caracteres de control y normalizar
+        let clean = rawText;
         
-        // Dividir por @
-        let fields = clean.split('@').map(f => f.trim()).filter(f => f.length > 0);
+        // Eliminar caracteres de control ASCII (0x00-0x1F excepto tab, newline)
+        clean = clean.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
         
-        // Buscar el patrón "CO" que indica cédula colombiana
-        let coIndex = fields.findIndex(f => f.toUpperCase() === 'CO');
+        // Reemplazar saltos de línea y tabs por @
+        clean = clean.replace(/[\r\n\t]+/g, '@');
         
-        if (coIndex === -1) {
-          // Si no encuentra CO, intentar buscar cédula numérica
-          let cedulaIndex = fields.findIndex(f => /^\d{7,10}$/.test(f));
-          if (cedulaIndex !== -1) {
-            coIndex = cedulaIndex - 1;
+        // Eliminar múltiples @ consecutivos
+        clean = clean.replace(/@+/g, '@');
+        
+        // Quitar @ al inicio y final
+        clean = clean.replace(/^@+|@+$/g, '');
+        
+        // 2. Dividir por @
+        let parts = clean.split('@').map(p => p.trim()).filter(p => p.length > 0);
+        
+        // 3. Si no hay @, intentar con otros delimitadores
+        if (parts.length < 5) {
+          // Intentar con pipes
+          clean = rawText.replace(/[\r\n\t]+/g, '|');
+          clean = clean.replace(/\|+/g, '|').replace(/^\|+|\|+$/g, '');
+          parts = clean.split('|').map(p => p.trim()).filter(p => p.length > 0);
+        }
+        
+        if (parts.length < 5) {
+          // Último recurso: buscar patrones específicos
+          return parseByPatterns(rawText);
+        }
+
+        // 4. Buscar índices de campos clave
+        let idxCedula = -1;
+        let idxFechaNac = -1;
+        let idxRH = -1;
+        let idxSexo = -1;
+
+        for (let i = 0; i < parts.length; i++) {
+          const p = parts[i].trim();
+          
+          // Buscar cédula (7-10 dígitos)
+          if (idxCedula === -1 && /^\d{7,10}$/.test(p)) {
+            idxCedula = i;
+          }
+          
+          // Buscar fecha de nacimiento (8 dígitos que empiecen con 19 o 20)
+          if (idxFechaNac === -1 && /^(19|20)\d{6}$/.test(p)) {
+            idxFechaNac = i;
+          }
+          
+          // Buscar RH (letra seguida de + o -)
+          if (idxRH === -1 && /^[A-ZO][+-]$/i.test(p)) {
+            idxRH = i;
+          }
+          
+          // Buscar sexo (M o F solo)
+          if (idxSexo === -1 && /^[MF]$/i.test(p)) {
+            idxSexo = i;
           }
         }
-        
-        if (coIndex === -1) return { valid: false, error: 'No se encontró formato de cédula colombiana' };
-        
-        // Extraer campos según posición relativa a CO
-        let result = {
-          valid: true,
-          tipoDocumento: fields[coIndex + 1] || 'CC',
-          numeroDocumento: limpiarTexto(fields[coIndex + 2] || ''),
-          primerNombre: limpiarTexto(fields[coIndex + 3] || ''),
-          segundoNombre: limpiarTexto(fields[coIndex + 4] || ''),
-          primerApellido: limpiarTexto(fields[coIndex + 5] || ''),
-          segundoApellido: limpiarTexto(fields[coIndex + 6] || ''),
-          fechaNacimiento: formatearFecha(fields[coIndex + 7] || ''),
-          sexo: formatearSexo(fields[coIndex + 8] || ''),
-          estatura: formatearEstatura(fields[coIndex + 9] || ''),
-          grupoSanguineo: formatearRH(fields[coIndex + 10] || ''),
-          lugarNacimiento: limpiarTexto(fields[coIndex + 11] || ''),
-          fechaExpedicion: formatearFecha(fields[coIndex + 12] || ''),
-          lugarExpedicion: limpiarTexto(fields[coIndex + 13] || ''),
-          timestamp: new Date().toLocaleString()
+
+        // 5. Construir objeto con datos
+        const data = {
+          tipo: 'CC',
+          cedula: '',
+          nombres: '',
+          apellidos: '',
+          nacimiento: '',
+          sexo: '',
+          estatura: '',
+          rh: '',
+          lugarNacimiento: '',
+          fechaExpedicion: '',
+          lugarExpedicion: ''
         };
+
+        // Si encontramos cédula y RH, podemos inferir la estructura
+        if (idxCedula !== -1 && idxRH !== -1) {
+          // Tipo está antes de la cédula
+          if (idxCedula > 0) {
+            data.tipo = parts[idxCedula - 1].trim();
+          }
+          
+          data.cedula = parts[idxCedula].trim();
+          
+          // Nombres y apellidos están entre cédula y fecha de nacimiento o RH
+          let startNombres = idxCedula + 1;
+          let endNombres = idxFechaNac !== -1 ? idxFechaNac : idxRH;
+          
+          if (startNombres < endNombres) {
+            // Asumir: nombre1, nombre2, apellido1, apellido2
+            const namesParts = parts.slice(startNombres, endNombres);
+            
+            if (namesParts.length >= 4) {
+              data.nombres = `${namesParts[0]} ${namesParts[1]}`.trim();
+              data.apellidos = `${namesParts[2]} ${namesParts[3]}`.trim();
+            } else if (namesParts.length === 3) {
+              data.nombres = namesParts[0];
+              data.apellidos = `${namesParts[1]} ${namesParts[2]}`.trim();
+            } else if (namesParts.length === 2) {
+              data.nombres = namesParts[0];
+              data.apellidos = namesParts[1];
+            } else if (namesParts.length === 1) {
+              data.nombres = namesParts[0];
+            }
+          }
+          
+          // Fecha de nacimiento
+          if (idxFechaNac !== -1) {
+            data.nacimiento = formatDate(parts[idxFechaNac]);
+          }
+          
+          // Sexo
+          if (idxSexo !== -1) {
+            const s = parts[idxSexo].toUpperCase();
+            data.sexo = s === 'M' ? 'Masculino' : 'Femenino';
+          }
+          
+          // Estatura (número de 2-3 dígitos antes del RH)
+          if (idxRH > 0) {
+            const est = parts[idxRH - 1].trim();
+            if (/^\d{2,3}$/.test(est)) {
+              data.estatura = `${est} cm`;
+            }
+          }
+          
+          // RH
+          data.rh = parts[idxRH].toUpperCase();
+          
+          // Lugar de nacimiento (después del RH)
+          if (idxRH + 1 < parts.length) {
+            data.lugarNacimiento = parts[idxRH + 1].trim();
+          }
+          
+          // Fecha de expedición
+          if (idxRH + 2 < parts.length) {
+            const fechaExp = parts[idxRH + 2].trim();
+            if (/^(19|20)\d{6}$/.test(fechaExp)) {
+              data.fechaExpedicion = formatDate(fechaExp);
+            } else {
+              data.lugarNacimiento += ' ' + fechaExp;
+            }
+          }
+          
+          // Lugar de expedición
+          if (idxRH + 3 < parts.length) {
+            data.lugarExpedicion = parts[idxRH + 3].trim();
+          }
+        } else {
+          // Fallback: mapeo posicional básico
+          data.tipo = parts[0] || 'CC';
+          data.cedula = parts[1] || '';
+          data.nombres = parts[2] || '';
+          if (parts[3]) data.nombres += ' ' + parts[3];
+          data.apellidos = parts[4] || '';
+          if (parts[5]) data.apellidos += ' ' + parts[5];
+          data.nacimiento = parts[6] ? formatDate(parts[6]) : '';
+          
+          if (parts[7]) {
+            const s = parts[7].toUpperCase();
+            data.sexo = s === 'M' ? 'Masculino' : s === 'F' ? 'Femenino' : parts[7];
+          }
+          
+          if (parts[8] && /^\d{2,3}$/.test(parts[8])) {
+            data.estatura = `${parts[8]} cm`;
+          }
+          
+          if (parts[9]) {
+            data.rh = parts[9].toUpperCase();
+          }
+          
+          data.lugarNacimiento = parts[10] || '';
+          data.fechaExpedicion = parts[11] ? formatDate(parts[11]) : '';
+          data.lugarExpedicion = parts[12] || '';
+        }
+
+        // Limpiar campos
+        data.nombres = data.nombres.replace(/\s+/g, ' ').trim();
+        data.apellidos = data.apellidos.replace(/\s+/g, ' ').trim();
         
-        // Construir nombres y apellidos completos
-        result.nombres = [result.primerNombre, result.segundoNombre].filter(n => n).join(' ') || 'N/A';
-        result.apellidos = [result.primerApellido, result.segundoApellido].filter(a => a).join(' ') || 'N/A';
-        result.cedula = result.numeroDocumento || 'N/A';
-        result.nacimiento = result.fechaNacimiento;
-        result.sexo = result.sexo;
-        result.estatura = result.estatura;
-        result.rh = result.grupoSanguineo;
-        result.lugarNacimiento = result.lugarNacimiento || 'N/A';
-        result.fechaExpedicion = result.fechaExpedicion;
-        result.lugarExpedicion = result.lugarExpedicion || 'N/A';
-        
-        return result;
+        return data;
         
       } catch (e) {
-        console.error('Error parsing:', e);
-        return { valid: false, error: e.message };
+        console.error('Parse error:', e);
+        return null;
       }
     }
 
-    function limpiarTexto(texto) {
-      if (!texto) return '';
-      // Eliminar caracteres especiales pero mantener letras, números, espacios y tildes
-      return texto.replace(/[^\w\sáéíóúÁÉÍÓÚñÑ\-\.]/g, '').trim();
+    function parseByPatterns(rawText) {
+      // Buscar patrones específicos en el texto
+      const data = {
+        tipo: 'CC',
+        cedula: '',
+        nombres: '',
+        apellidos: '',
+        nacimiento: '',
+        sexo: '',
+        estatura: '',
+        rh: '',
+        lugarNacimiento: '',
+        fechaExpedicion: '',
+        lugarExpedicion: ''
+      };
+
+      // Buscar cédula
+      const cedulaMatch = rawText.match(/(?:CC|TI|@)(\d{7,10})/i);
+      if (cedulaMatch) {
+        data.cedula = cedulaMatch[1];
+      }
+
+      // Buscar fecha de nacimiento
+      const fechaMatch = rawText.match(/(19|20)(\d{2})(\d{2})(\d{2})/);
+      if (fechaMatch) {
+        data.nacimiento = `${fechaMatch[4]}/${fechaMatch[3]}/${fechaMatch[1]}${fechaMatch[2]}`;
+      }
+
+      // Buscar RH
+      const rhMatch = rawText.match(/([A-ZO][+-])/i);
+      if (rhMatch) {
+        data.rh = rhMatch[1].toUpperCase();
+      }
+
+      // Buscar sexo
+      const sexoMatch = rawText.match(/\b([MF])\b/i);
+      if (sexoMatch) {
+        const s = sexoMatch[1].toUpperCase();
+        data.sexo = s === 'M' ? 'Masculino' : 'Femenino';
+      }
+
+      // Buscar estatura
+      const estMatch = rawText.match(/\b(\d{2,3})\s*cm\b/i);
+      if (estMatch) {
+        data.estatura = `${estMatch[1]} cm`;
+      }
+
+      return data.cedula || data.rh ? data : null;
     }
 
-    function formatearFecha(fecha) {
-      if (!fecha) return 'N/A';
-      // Remover caracteres no numéricos
-      let f = fecha.replace(/\D/g, '');
-      
-      // Si tiene 8 dígitos, asumir formato YYYYMMDD
-      if (f.length === 8) {
-        let year = parseInt(f.substring(0, 4));
-        let month = f.substring(4, 6);
-        let day = f.substring(6, 8);
-        
-        if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-          return `${day}/${month}/${year}`;
+    function formatDate(str) {
+      if (!str) return '';
+      const d = str.replace(/\D/g, '');
+      if (d.length === 8) {
+        const year = parseInt(d.substring(0, 4));
+        if (year >= 1900 && year <= 2100) {
+          return `${d.substring(6, 8)}/${d.substring(4, 6)}/${d.substring(0, 4)}`;
         }
       }
-      
-      // Si tiene 6 dígitos, asumir formato YYMMDD
-      if (f.length === 6) {
-        let year = parseInt(f.substring(0, 2));
-        let month = f.substring(2, 4);
-        let day = f.substring(4, 6);
-        let fullYear = year < 50 ? 2000 + year : 1900 + year;
-        
-        if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-          return `${day}/${month}/${fullYear}`;
-        }
-      }
-      
-      return 'N/A';
-    }
-
-    function formatearSexo(sexo) {
-      if (!sexo) return 'N/A';
-      let s = sexo.toUpperCase().trim();
-      if (s === 'M') return 'Masculino';
-      if (s === 'F') return 'Femenino';
-      return 'N/A';
-    }
-
-    function formatearEstatura(est) {
-      if (!est) return 'N/A';
-      // Buscar número de 2-3 dígitos
-      let match = est.match(/(\d{2,3})/);
-      if (match) {
-        return `${match[1]} cm`;
-      }
-      return 'N/A';
-    }
-
-    function formatearRH(rh) {
-      if (!rh) return 'N/A';
-      // Buscar patrón como A+, O-, B+, etc.
-      let match = rh.toUpperCase().match(/([ABO][+-])/);
-      if (match) {
-        return match[1];
-      }
-      return 'N/A';
+      return str;
     }
 
     function onScanSuccess(rawText) {
@@ -390,56 +504,92 @@
       
       const data = parseCedulaColombiana(rawText);
       
-      if (!data.valid) {
-        showError('❌ Error: ' + (data.error || 'Formato no reconocido'));
+      if (!data || (!data.cedula && !data.rh)) {
+        showToast('❌ No se pudo decodificar la cédula');
+        console.error('Failed to parse:', rawText);
         return;
       }
 
-      currentScanData = data;
+      currentData = data;
       displayResult(data);
       saveRecord(data);
-      els.btnNew.style.display = 'block';
       showToast('✅ Cédula decodificada correctamente');
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      
+      if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+      }
     }
 
     function displayResult(d) {
-      document.getElementById('r-nombres').textContent = d.nombres;
-      document.getElementById('r-apellidos').textContent = d.apellidos;
-      document.getElementById('r-cedula').textContent = d.cedula;
-      document.getElementById('r-nacimiento').textContent = d.nacimiento;
-      document.getElementById('r-lug-nac').textContent = d.lugarNacimiento;
-      document.getElementById('r-sexo').textContent = d.sexo;
-      document.getElementById('r-estatura').textContent = d.estatura;
-      document.getElementById('r-rh').textContent = d.rh;
-      document.getElementById('r-fecha-exp').textContent = d.fechaExpedicion;
-      document.getElementById('r-lug-exp').textContent = d.lugarExpedicion;
-      document.getElementById('timestamp').textContent = `🕒 ${d.timestamp}`;
+      document.getElementById('r-tipo').textContent = d.tipo || 'CC';
+      document.getElementById('r-cedula').textContent = d.cedula || '-';
+      document.getElementById('r-nombres').textContent = d.nombres || '-';
+      document.getElementById('r-apellidos').textContent = d.apellidos || '-';
+      document.getElementById('r-nacimiento').textContent = d.nacimiento || '-';
+      document.getElementById('r-sexo').textContent = d.sexo || '-';
+      document.getElementById('r-estatura').textContent = d.estatura || '-';
+      document.getElementById('r-rh').textContent = d.rh || '-';
+      document.getElementById('r-lug-nac').textContent = d.lugarNacimiento || '-';
+      document.getElementById('r-fecha-exp').textContent = d.fechaExpedicion || '-';
+      document.getElementById('r-lug-exp').textContent = d.lugarExpedicion || '-';
+      document.getElementById('timestamp').textContent = new Date().toLocaleString();
+      
       els.result.classList.add('visible');
+      els.result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function copyData() {
+      if (!currentData) return;
+      
+      const text = `
+CÉDULA DE CIUDADANÍA
+Tipo: ${currentData.tipo}
+Número: ${currentData.cedula}
+Nombres: ${currentData.nombres}
+Apellidos: ${currentData.apellidos}
+Fecha Nacimiento: ${currentData.nacimiento}
+Sexo: ${currentData.sexo}
+Estatura: ${currentData.estatura}
+RH: ${currentData.rh}
+Lugar Nacimiento: ${currentData.lugarNacimiento}
+Fecha Expedición: ${currentData.fechaExpedicion}
+Lugar Expedición: ${currentData.lugarExpedicion}
+      `.trim();
+      
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('📋 Datos copiados al portapapeles');
+      }).catch(() => {
+        showToast('❌ Error al copiar');
+      });
     }
 
     function saveRecord(d) {
-      records.unshift(d);
+      records.unshift({ ...d, timestamp: new Date().toISOString() });
       localStorage.setItem('cedula_records', JSON.stringify(records));
       renderRecords();
     }
 
     function renderRecords() {
-      els.recordsBody.innerHTML = '';
       els.count.textContent = records.length;
+      els.recordsBody.innerHTML = '';
+      
       if (records.length === 0) {
         els.emptyState.style.display = 'block';
         els.recordsTable.style.display = 'none';
         return;
       }
+      
       els.emptyState.style.display = 'none';
       els.recordsTable.style.display = 'table';
       
       records.forEach((r, i) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td><strong>${r.cedula}</strong></td><td>${r.nombres}</td><td>${r.apellidos}</td>
-          <td>${r.nacimiento}</td><td>${r.rh}</td><td>${r.timestamp.split(' ')[0]}</td>
+          <td><strong>${r.cedula || '-'}</strong></td>
+          <td>${r.nombres || '-'}</td>
+          <td>${r.apellidos || '-'}</td>
+          <td>${r.nacimiento || '-'}</td>
+          <td>${r.rh || '-'}</td>
           <td><button class="btn btn-danger btn-sm" onclick="deleteRecord(${i})">🗑</button></td>
         `;
         els.recordsBody.appendChild(tr);
@@ -450,36 +600,56 @@
       records.splice(idx, 1);
       localStorage.setItem('cedula_records', JSON.stringify(records));
       renderRecords();
-      showToast('🗑 Registro eliminado.');
+      showToast('🗑 Registro eliminado');
     };
 
-    window.clearRecords = () => {
+    function clearRecords() {
       if (!confirm('¿Eliminar todos los registros?')) return;
       records = [];
       localStorage.setItem('cedula_records', JSON.stringify(records));
       renderRecords();
-      showToast('🗑 Historial limpiado.');
-    };
+      showToast('🗑 Historial limpiado');
+    }
 
     function exportCSV() {
-      if (records.length === 0) return showToast('⚠️ No hay datos.');
-      const headers = ['Cédula','Nombres','Apellidos','F. Nacimiento','Lugar Nac.','Sexo','Estatura','RH','F. Expedición','Lugar Exp.','Fecha'];
-      const rows = records.map(r => [r.cedula, r.nombres, r.apellidos, r.nacimiento, r.lugarNacimiento, r.sexo, r.estatura, r.rh, r.fechaExpedicion, r.lugarExpedicion, r.timestamp]);
-      const csv = '\uFEFF' + [headers, ...rows].map(e => e.map(f => `"${(f||'').replace(/"/g,'""')}"`).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      if (records.length === 0) {
+        showToast('⚠️ No hay registros para exportar');
+        return;
+      }
+      
+      const headers = ['Tipo', 'Cédula', 'Nombres', 'Apellidos', 'F. Nacimiento', 'Sexo', 'Estatura', 'RH', 'Lugar Nac.', 'F. Expedición', 'Lugar Exp.'];
+      const rows = records.map(r => [
+        r.tipo || '',
+        r.cedula || '',
+        r.nombres || '',
+        r.apellidos || '',
+        r.nacimiento || '',
+        r.sexo || '',
+        r.estatura || '',
+        r.rh || '',
+        r.lugarNacimiento || '',
+        r.fechaExpedicion || '',
+        r.lugarExpedicion || ''
+      ]);
+      
+      const csv = [headers, ...rows].map(row => 
+        row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(',')
+      ).join('\n');
+      
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `cedulas_${new Date().toISOString().slice(0,10)}.csv`;
+      link.download = `cedulas_${new Date().toISOString().split('T')[0]}.csv`;
       link.click();
-      showToast('⬇️ CSV descargado.');
+      
+      showToast('⬇️ Archivo Excel descargado');
     }
 
     function showToast(msg) {
       els.toast.textContent = msg;
       els.toast.classList.add('show');
-      setTimeout(() => els.toast.classList.remove('show'), 2500);
+      setTimeout(() => els.toast.classList.remove('show'), 3000);
     }
-    function showError(msg) { showToast(msg); }
 
     init();
   </script>
