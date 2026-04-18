@@ -514,176 +514,268 @@
     }
 
     // ══════════════════════════════════════════════════
-    // PDF417 - PARSER
-    // ══════════════════════════════════════════════════
+// PDF417 - PARSER MEJORADO
+// ══════════════════════════════════════════════════
 
-    function parseCedulaColombiana(rawText) {
-      console.log('=== RAW PDF417 ===');
-      console.log(rawText);
+function parseCedulaColombiana(rawText) {
+  console.log('=== RAW PDF417 ===');
+  console.log(rawText);
+  console.log('================');
+  
+  try {
+    // Limpiar texto
+    let text = rawText
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ' ')
+      .replace(/\r\n/g, ' ')
+      .replace(/\r/g, ' ')
+      .replace(/\n/g, ' ')
+      .trim();
+
+    // Dividir por @ o |
+    let delimiter = text.includes('@') ? '@' : '|';
+    let fields = text.split(delimiter)
+      .map(f => f.trim())
+      .filter(f => f.length > 0);
+
+    console.log('Fields:', fields);
+
+    const result = {
+      tipoDocumento: 'CC',
+      cedula: '',
+      nombres: '',
+      apellidos: '',
+      fechaNacimiento: '',
+      lugarNacimiento: '',
+      sexo: '',
+      estatura: '',
+      rh: '',
+      fechaExpedicion: '',
+      lugarExpedicion: '',
+      timestamp: new Date().toLocaleString()
+    };
+
+    // Patrones
+    const fechaPattern = /^(\d{8}|\d{2}[-\/]\d{2}[-\/]\d{2,4})$/;
+    const cedulaPattern = /^\d{7,10}$/;
+    const rhPattern = /^[A-ZO][+-]$/;
+    const sexoPattern = /^[MF]$/;
+    const estaturaPattern = /^\d{2,3}$/;
+
+    // Buscar índice de "CO"
+    const coIndex = fields.findIndex(f => f.toUpperCase() === 'CO');
+    
+    if (coIndex !== -1 && fields.length > coIndex + 8) {
+      // Formato estándar: CO@TIPO@CEDULA@APELLIDOS@NOMBRES@FECHA_NAC@SEXO@ESTATURA@RH@LUGAR_NAC@FECHA_EXP@LUGAR_EXP
+      console.log('Formato estándar detectado');
       
-      try {
-        let text = rawText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+      result.tipoDocumento = fields[coIndex + 1] || 'CC';
+      result.cedula = fields[coIndex + 2] || '';
+      
+      // Apellidos (generalmente 2 campos después de la cédula)
+      let apellidoIndex = coIndex + 3;
+      let apellido1 = fields[apellidoIndex] || '';
+      let apellido2 = fields[apellidoIndex + 1] || '';
+      
+      // Verificar si el segundo "apellido" es en realidad parte del nombre
+      // Si parece un nombre (más corto o común), ajustamos
+      if (apellido2 && (apellido2.length < 4 || /^[AEIOU]/i.test(apellido2))) {
+        // Podría ser nombre
+        result.apellidos = apellido1;
+      } else {
+        result.apellidos = `${apellido1} ${apellido2}`.trim();
+      }
+      
+      // Nombres (después de apellidos)
+      let nombreStart = apellidoIndex + (result.apellidos.includes(' ') ? 1 : 2);
+      let nombres = [];
+      
+      // Recolectar nombres hasta encontrar una fecha
+      for (let i = nombreStart; i < fields.length; i++) {
+        if (fechaPattern.test(fields[i].replace(/\D/g, '')) || 
+            rhPattern.test(fields[i]) || 
+            sexoPattern.test(fields[i])) {
+          break;
+        }
+        if (fields[i].length > 1 && !/^\d+$/.test(fields[i])) {
+          nombres.push(fields[i]);
+        }
+      }
+      result.nombres = nombres.join(' ').trim();
+      
+      // Buscar fecha de nacimiento
+      let fechaNacIndex = fields.findIndex((f, i) => 
+        i > nombreStart && fechaPattern.test(f.replace(/\D/g, ''))
+      );
+      
+      if (fechaNacIndex !== -1) {
+        result.fechaNacimiento = formatDateDMY(fields[fechaNacIndex]);
         
-        let delimiter = '@';
-        const delimiters = ['@', '|', '~', '\n', '#', ';'];
-        for (let d of delimiters) {
-          if ((text.match(new RegExp('\\' + d, 'g')) || []).length > 3) {
-            delimiter = d;
-            break;
+        // Sexo (después de fecha)
+        if (fields[fechaNacIndex + 1] && sexoPattern.test(fields[fechaNacIndex + 1])) {
+          result.sexo = fields[fechaNacIndex + 1].toUpperCase() === 'M' ? 'Masculino' : 'Femenino';
+        }
+        
+        // Estatura (después de sexo)
+        if (fields[fechaNacIndex + 2] && estaturaPattern.test(fields[fechaNacIndex + 2])) {
+          result.estatura = fields[fechaNacIndex + 2] + ' cm';
+        }
+        
+        // RH (después de estatura)
+        if (fields[fechaNacIndex + 3] && rhPattern.test(fields[fechaNacIndex + 3])) {
+          result.rh = fields[fechaNacIndex + 3].toUpperCase();
+        }
+        
+        // Lugar de nacimiento (después de RH o después de fecha si no hay RH)
+        let lugarNacIndex = fechaNacIndex + 4;
+        if (fields[lugarNacIndex] && !fechaPattern.test(fields[lugarNacIndex].replace(/\D/g, ''))) {
+          result.lugarNacimiento = cleanText(fields[lugarNacIndex]);
+        }
+        
+        // Fecha de expedición
+        let fechaExpIndex = lugarNacIndex + 1;
+        if (fields[fechaExpIndex] && fechaPattern.test(fields[fechaExpIndex].replace(/\D/g, ''))) {
+          result.fechaExpedicion = formatDateDMY(fields[fechaExpIndex]);
+        }
+        
+        // Lugar de expedición
+        if (fields[fechaExpIndex + 1]) {
+          result.lugarExpedicion = cleanText(fields[fechaExpIndex + 1]);
+        }
+      }
+      
+    } else {
+      // Búsqueda por patrones
+      console.log('Búsqueda por patrones');
+      
+      // Buscar cédula
+      const cedulaIdx = fields.findIndex(f => cedulaPattern.test(f));
+      if (cedulaIdx !== -1) {
+        result.cedula = fields[cedulaIdx];
+      }
+      
+      // Buscar fechas
+      const fechasIdx = fields.map((f, i) => 
+        fechaPattern.test(f.replace(/\D/g, '')) ? i : -1
+      ).filter(i => i !== -1);
+      
+      if (fechasIdx.length > 0) {
+        result.fechaNacimiento = formatDateDMY(fields[fechasIdx[0]]);
+        
+        // Lugar de nacimiento (generalmente después de la primera fecha)
+        if (fechasIdx[0] + 1 < fields.length) {
+          const posibleLugar = fields[fechasIdx[0] + 1];
+          if (!rhPattern.test(posibleLugar) && 
+              !sexoPattern.test(posibleLugar) && 
+              posibleLugar.length > 3 && 
+              !/^\d+$/.test(posibleLugar)) {
+            result.lugarNacimiento = cleanText(posibleLugar);
           }
         }
-
-        let fields = text.split(delimiter).map(f => f.trim()).filter(f => f.length > 0 && !/^[\x00-\x1F]*$/.test(f));
-        
-        const result = {
-          tipoDocumento: 'CC',
-          cedula: '',
-          nombres: '',
-          apellidos: '',
-          fechaNacimiento: '',
-          sexo: '',
-          estatura: '',
-          rh: '',
-          lugarNacimiento: '',
-          fechaExpedicion: '',
-          lugarExpedicion: '',
-          timestamp: new Date().toLocaleString()
-        };
-
-        const patterns = {
-          fecha: /^\d{8}$/,
-          cedula: /^\d{7,10}$/,
-          rh: /^[A-ZO][+-]$/i,
-          sexo: /^[MF]$/i,
-          estatura: /^\d{2,3}$/
-        };
-
-        const coIndex = fields.findIndex(f => f === 'CO' || f.toUpperCase() === 'CO');
-        
-        if (coIndex !== -1 && fields.length > coIndex + 10) {
-          result.tipoDocumento = fields[coIndex + 1] || 'CC';
-          result.cedula = fields[coIndex + 2] || '';
-          
-          let nameStart = coIndex + 3;
-          let firstDateIndex = fields.findIndex((f, i) => i > nameStart && patterns.fecha.test(f.replace(/\D/g, '')));
-          if (firstDateIndex === -1) firstDateIndex = fields.length;
-          
-          const nameFields = fields.slice(nameStart, firstDateIndex);
-          if (nameFields.length >= 2) {
-            result.apellidos = `${nameFields[0] || ''} ${nameFields[1] || ''}`.trim();
-            result.nombres = nameFields.slice(2).join(' ').trim();
-          }
-          
-          if (fields[firstDateIndex] && patterns.fecha.test(fields[firstDateIndex])) {
-            result.fechaNacimiento = formatDateDMY(fields[firstDateIndex]);
-          }
-          
-          const sexoField = fields[firstDateIndex + 1];
-          if (sexoField && patterns.sexo.test(sexoField)) {
-            result.sexo = sexoField.toUpperCase() === 'M' ? 'Masculino' : 'Femenino';
-          }
-          
-          const estaturaField = fields[firstDateIndex + 2];
-          if (estaturaField && patterns.estatura.test(estaturaField)) {
-            result.estatura = estaturaField + ' cm';
-          }
-          
-          const rhField = fields[firstDateIndex + 3];
-          if (rhField && (patterns.rh.test(rhField) || /^[A-ZO][+-]?$/i.test(rhField))) {
-            result.rh = rhField.toUpperCase();
-          }
-          
-          const lugNacField = fields[firstDateIndex + 4];
-          if (lugNacField && !patterns.rh.test(lugNacField)) {
-            result.lugarNacimiento = cleanText(lugNacField);
-          }
-          
-          const fechaExpIndex = firstDateIndex + 5;
-          if (fields[fechaExpIndex] && patterns.fecha.test(fields[fechaExpIndex])) {
-            result.fechaExpedicion = formatDateDMY(fields[fechaExpIndex]);
-          }
-          
-          const lugExpField = fields[fechaExpIndex + 1];
-          if (lugExpField) {
-            result.lugarExpedicion = cleanText(lugExpField);
-          }
-        }
-
-        result.nombres = cleanText(result.nombres);
-        result.apellidos = cleanText(result.apellidos);
-        result.lugarNacimiento = cleanText(result.lugarNacimiento);
-        result.lugarExpedicion = cleanText(result.lugarExpedicion);
-        
-        const isValid = result.cedula && (result.nombres || result.apellidos);
-        
-        return { valid: isValid, ...result, raw: rawText };
-        
-      } catch (error) {
-        console.error('Error parsing:', error);
-        return { valid: false, raw: rawText, error: error.message };
+      }
+      
+      if (fechasIdx.length > 1) {
+        result.fechaExpedicion = formatDateDMY(fields[fechasIdx[1]]);
+      }
+      
+      // Buscar RH
+      const rhIdx = fields.findIndex(f => rhPattern.test(f));
+      if (rhIdx !== -1) {
+        result.rh = fields[rhIdx].toUpperCase();
+      }
+      
+      // Buscar sexo
+      const sexoIdx = fields.findIndex(f => sexoPattern.test(f));
+      if (sexoIdx !== -1) {
+        result.sexo = fields[sexoIdx].toUpperCase() === 'M' ? 'Masculino' : 'Femenino';
+      }
+      
+      // Buscar estatura
+      const estaturaIdx = fields.findIndex(f => estaturaPattern.test(f));
+      if (estaturaIdx !== -1) {
+        result.estatura = fields[estaturaIdx] + ' cm';
+      }
+      
+      // Extraer texto para nombres/apellidos
+      const textFields = fields.filter(f => 
+        /[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(f) && 
+        f.length > 2 && 
+        !fechaPattern.test(f.replace(/\D/g, '')) &&
+        !cedulaPattern.test(f) &&
+        !rhPattern.test(f) &&
+        !sexoPattern.test(f) &&
+        f.toUpperCase() !== 'CO' &&
+        !estaturaPattern.test(f)
+      );
+      
+      if (textFields.length >= 2) {
+        // Primeros campos = apellidos, últimos = nombres
+        const mid = Math.ceil(textFields.length / 2);
+        result.apellidos = textFields.slice(0, mid).join(' ');
+        result.nombres = textFields.slice(mid).join(' ');
       }
     }
 
-    function cleanText(text) {
-      if (!text) return '';
-      return text.replace(/[^\w\sáéíóúÁÉÍÓÚñÑ\-\.]/g, ' ').replace(/\s+/g, ' ').trim();
+    // Limpieza final
+    result.nombres = cleanText(result.nombres);
+    result.apellidos = cleanText(result.apellidos);
+    result.lugarNacimiento = cleanText(result.lugarNacimiento);
+    result.lugarExpedicion = cleanText(result.lugarExpedicion);
+    
+    // Validar
+    const isValid = result.cedula && (result.nombres || result.apellidos);
+    
+    console.log('=== RESULTADO ===');
+    console.log(result);
+    console.log('================');
+    
+    return {
+      valid: isValid,
+      ...result,
+      raw: rawText
+    };
+    
+  } catch (error) {
+    console.error('Error en parsing:', error);
+    return { valid: false, raw: rawText, error: error.message };
+  }
+}
+
+function cleanText(text) {
+  if (!text) return '';
+  return text
+    .replace(/[^\w\sáéíóúÁÉÍÓÚñÑ\-\.]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function formatDateDMY(dateStr) {
+  if (!dateStr) return '';
+  const clean = dateStr.replace(/\D/g, '');
+  
+  if (clean.length === 8) {
+    // Formato YYYYMMDD
+    const year = clean.substring(0, 4);
+    const month = clean.substring(4, 6);
+    const day = clean.substring(6, 8);
+    
+    if (year >= '1900' && year <= '2100' && 
+        month >= '01' && month <= '12' && 
+        day >= '01' && day <= '31') {
+      return `${day}/${month}/${year}`;
     }
-
-    function formatDateDMY(dateStr) {
-      if (!dateStr) return '';
-      const clean = dateStr.replace(/\D/g, '');
-      if (clean.length === 8) {
-        const year = clean.substring(0, 4);
-        const month = clean.substring(4, 6);
-        const day = clean.substring(6, 8);
-        if (year >= '1900' && year <= '2100' && month >= '01' && month <= '12' && day >= '01' && day <= '31') {
-          return `${day}/${month}/${year}`;
-        }
-      }
-      return dateStr;
+  } else if (clean.length === 6) {
+    // Formato DDMMYY
+    const day = clean.substring(0, 2);
+    const month = clean.substring(2, 4);
+    const year = '20' + clean.substring(4, 6);
+    
+    if (month >= '01' && month <= '12' && day >= '01' && day <= '31') {
+      return `${day}/${month}/${year}`;
     }
-
-    function onScanSuccess(rawText) {
-      stopScanner();
-      lastRawData = rawText;
-      const data = parseCedulaColombiana(rawText);
-      
-      if (!data.valid) {
-        showError('❌ Formato no reconocido');
-        const debugEl = document.getElementById('raw-debug');
-        debugEl.textContent = '🔍 Datos crudos:\n' + rawText.substring(0, 300);
-        debugEl.classList.add('show');
-        els.result.classList.add('visible');
-        els.btnNew.style.display = 'block';
-        return;
-      }
-
-      document.getElementById('r-tipo').textContent = data.tipoDocumento || 'CC';
-      document.getElementById('r-cedula').textContent = data.cedula || 'N/A';
-      document.getElementById('r-nombres').textContent = data.nombres || 'N/A';
-      document.getElementById('r-apellidos').textContent = data.apellidos || 'N/A';
-      document.getElementById('r-nacimiento').textContent = data.fechaNacimiento || 'N/A';
-      document.getElementById('r-lug-nac').textContent = data.lugarNacimiento || 'N/A';
-      document.getElementById('r-sexo').textContent = data.sexo || 'N/A';
-      document.getElementById('r-estatura').textContent = data.estatura || 'N/A';
-      document.getElementById('r-rh').textContent = data.rh || 'N/A';
-      document.getElementById('r-fecha-exp').textContent = data.fechaExpedicion || 'N/A';
-      document.getElementById('r-lug-exp').textContent = data.lugarExpedicion || 'N/A';
-      document.getElementById('timestamp').textContent = `🕒 ${data.timestamp}`;
-      
-      document.getElementById('raw-debug').classList.remove('show');
-      els.result.classList.add('visible');
-      els.btnNew.style.display = 'block';
-      
-      lastScanData = data;
-      records.unshift(data);
-      localStorage.setItem('cedula_records', JSON.stringify(records));
-      renderRecords();
-      
-      showToast('✅ Cédula decodificada');
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-    }
-
+  }
+  
+  return dateStr;
+}
     function copyRawData() {
       if (!lastRawData) return showError('⚠️ Sin datos');
       navigator.clipboard.writeText(lastRawData).then(() => showToast('📋 Copiado'));
